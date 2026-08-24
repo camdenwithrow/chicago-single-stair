@@ -1,0 +1,44 @@
+[project]
+name = "single-stair"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Camden Withrow", email = "withrowcamden@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "duckdb>=1.5.5",
+    "geopandas>=1.1.4",
+    "httpx>=0.28.1",
+    "pyarrow>=25.0.1",
+]
+
+[project.scripts]
+single-stair = "single_stair:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "I",   # import sorting
+    "B",   # common bug patterns
+    "UP",  # modern Python syntax
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
