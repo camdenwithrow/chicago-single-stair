@@ -1,15 +1,18 @@
 1. Set up the project
-- [ ] Create the Python, DuckDB, and dbt project.
-- [ ] Add .env configuration for Socrata and Census API keys.
-- [ ] Create raw, staged, and final data directories.
-- [ ] Add tests, formatting, and a basic GitHub Actions workflow.
+- [x] Create the Python project
+- [x] Add .env configuration for Socrata and Census API keys.
+- [x] Create raw, staged, and final data directories.
+- [x] Add tests and formatting.
+- [ ] Add a basic GitHub Actions workflow.
 2. Ingest the data
-- [ ] Download Cook County parcels and building characteristics.
+- [x] Download Cook County parcel geometry.
+- [ ] Download Cook County building characteristics.
 - [ ] Download current Chicago zoning.
 - [ ] Download Chicago building permits.
 - [ ] Download city-owned land.
 - [ ] Download CTA and Metra station locations.
 - [ ] Download Census data on families, bedrooms, overcrowding, and rent burden.
+- [x] Implement reusable dated GeoParquet snapshots with manifests and validation.
 - [ ] Save dated, unmodified source snapshots as Parquet.
 3. Clean and join everything
 - [ ] Standardize parcel PINs.
