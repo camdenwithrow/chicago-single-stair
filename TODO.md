@@ -6,7 +6,7 @@
 - [ ] Add a basic GitHub Actions workflow.
 2. Ingest the data
 - [x] Download Cook County parcel geometry.
-- [ ] Download Cook County building characteristics.
+- [x] Download Cook County single- and small-multifamily building characteristics.
 - [ ] Download current Chicago zoning.
 - [ ] Download Chicago building permits.
 - [ ] Download city-owned land.
