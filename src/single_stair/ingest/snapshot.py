@@ -9,6 +9,8 @@ from typing import Any
 from uuid import uuid4
 
 import geopandas as gpd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 
 class SnapshotError(RuntimeError):
@@ -31,8 +33,8 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-class GeoParquetSnapshotWriter:
-    """Write immutable GeoJSON batches to an atomically finalized GeoParquet snapshot."""
+class ParquetSnapshotWriter:
+    """Write immutable record batches to an atomically finalized Parquet snapshot."""
 
     def __init__(
         self,
@@ -40,7 +42,7 @@ class GeoParquetSnapshotWriter:
         raw_root: Path,
         dataset: str,
         source_url: str,
-        output_crs: str,
+        output_crs: str | None,
         snapshot_date: date | None = None,
         retrieved_at: datetime | None = None,
     ) -> None:
@@ -60,7 +62,7 @@ class GeoParquetSnapshotWriter:
         self.record_count = 0
         self._active = False
 
-    def __enter__(self) -> "GeoParquetSnapshotWriter":
+    def __enter__(self) -> "ParquetSnapshotWriter":
         self.dataset_root.mkdir(parents=True, exist_ok=True)
         if self.final_path.exists():
             raise FileExistsError(
@@ -76,37 +78,44 @@ class GeoParquetSnapshotWriter:
             shutil.rmtree(self.working_path)
         self._active = False
 
-    def write_geojson_batch(self, batch_number: int, payload: dict[str, Any]) -> SnapshotPart:
+    def _part_path(self, batch_number: int) -> Path:
         if not self._active:
             raise SnapshotError("Snapshot writer must be used as a context manager")
-
-        features = payload.get("features")
-        if payload.get("type") != "FeatureCollection" or not isinstance(features, list):
-            raise SnapshotError("Batch is not a valid GeoJSON FeatureCollection")
-        if not features:
-            raise SnapshotError(f"Batch {batch_number} contains no features")
-
-        frame = gpd.GeoDataFrame.from_features(features, crs=self.output_crs)
-        if frame.crs is None or "geometry" not in frame:
-            raise SnapshotError(f"Batch {batch_number} does not contain a georeferenced geometry")
-        if frame.geometry.isna().any():
-            raise SnapshotError(f"Batch {batch_number} contains missing geometry")
 
         part_path = self.working_path / f"part-{batch_number:05d}.parquet"
         if part_path.exists():
             raise SnapshotError(f"Batch {batch_number} has already been written")
+        return part_path
 
-        invalid_geometry_count = int((~frame.geometry.is_valid).sum())
-        frame.to_parquet(part_path, index=False, compression="zstd")
+    def _record_part(
+        self,
+        part_path: Path,
+        records: int,
+        *,
+        invalid_geometry_count: int = 0,
+    ) -> SnapshotPart:
         part = SnapshotPart(
             path=part_path.name,
-            records=len(frame),
+            records=records,
             sha256=_sha256(part_path),
             invalid_geometry_count=invalid_geometry_count,
         )
         self.parts.append(part)
-        self.record_count += len(frame)
+        self.record_count += records
         return part
+
+    def write_records_batch(
+        self,
+        batch_number: int,
+        records: list[dict[str, Any]],
+    ) -> SnapshotPart:
+        if not records:
+            raise SnapshotError(f"Batch {batch_number} contains no records")
+
+        part_path = self._part_path(batch_number)
+        table = pa.Table.from_pylist(records)
+        pq.write_table(table, part_path, compression="zstd")
+        return self._record_part(part_path, len(records))
 
     def commit(
         self,
@@ -144,3 +153,32 @@ class GeoParquetSnapshotWriter:
         os.replace(self.working_path, self.final_path)
         self._active = False
         return self.final_path
+
+
+class GeoParquetSnapshotWriter(ParquetSnapshotWriter):
+    """Write immutable GeoJSON batches as GeoParquet snapshot parts."""
+
+    def write_geojson_batch(self, batch_number: int, payload: dict[str, Any]) -> SnapshotPart:
+        if self.output_crs is None:
+            raise SnapshotError("GeoParquet snapshots require an output CRS")
+
+        features = payload.get("features")
+        if payload.get("type") != "FeatureCollection" or not isinstance(features, list):
+            raise SnapshotError("Batch is not a valid GeoJSON FeatureCollection")
+        if not features:
+            raise SnapshotError(f"Batch {batch_number} contains no features")
+
+        frame = gpd.GeoDataFrame.from_features(features, crs=self.output_crs)
+        if frame.crs is None or "geometry" not in frame:
+            raise SnapshotError(f"Batch {batch_number} does not contain a georeferenced geometry")
+        if frame.geometry.isna().any():
+            raise SnapshotError(f"Batch {batch_number} contains missing geometry")
+
+        part_path = self._part_path(batch_number)
+        invalid_geometry_count = int((~frame.geometry.is_valid).sum())
+        frame.to_parquet(part_path, index=False, compression="zstd")
+        return self._record_part(
+            part_path,
+            len(frame),
+            invalid_geometry_count=invalid_geometry_count,
+        )
