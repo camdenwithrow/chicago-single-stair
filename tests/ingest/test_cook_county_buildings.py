@@ -42,7 +42,7 @@ class BuildingCharacteristicsRequestTests(unittest.IsolatedAsyncioTestCase):
             transport=httpx.MockTransport(lambda _request: next(responses))
         ) as client:
             with patch(
-                "single_stair.ingest.cook_county_buildings.asyncio.sleep",
+                "single_stair.ingest.socrata.asyncio.sleep",
                 new_callable=AsyncMock,
             ) as sleep:
                 rows = await _request_rows(client, {"$limit": 1})

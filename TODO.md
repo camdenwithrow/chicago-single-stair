@@ -7,7 +7,7 @@
 2. Ingest the data
 - [x] Download Cook County parcel geometry.
 - [x] Download Cook County single- and small-multifamily building characteristics.
-- [ ] Download current Chicago zoning.
+- [x] Download current Chicago zoning.
 - [ ] Download Chicago building permits.
 - [ ] Download city-owned land.
 - [ ] Download CTA and Metra station locations.

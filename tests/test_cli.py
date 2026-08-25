@@ -15,6 +15,11 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(arguments.source, "cook-county-parcels")
 
+    def test_parses_chicago_zoning_source(self) -> None:
+        arguments = _parser().parse_args(["ingest", "chicago-zoning"])
+
+        self.assertEqual(arguments.source, "chicago-zoning")
+
 
 if __name__ == "__main__":
     unittest.main()

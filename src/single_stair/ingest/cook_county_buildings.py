@@ -1,5 +1,4 @@
 import asyncio
-import os
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import date
@@ -10,13 +9,18 @@ from typing import Any
 import httpx
 
 from single_stair.ingest.snapshot import ParquetSnapshotWriter, SnapshotError
+from single_stair.ingest.socrata import (
+    SocrataResponseError,
+    app_token_headers,
+    request_rows,
+)
+from single_stair.ingest.socrata import (
+    integer_field as _integer_field,
+)
 
 DATASET_ID = "x54s-btds"
 DATASET_URL = f"https://datacatalog.cookcountyil.gov/resource/{DATASET_ID}.json"
 DEFAULT_PAGE_SIZE = 50_000
-MAX_ATTEMPTS = 5
-MAX_RETRY_DELAY_SECONDS = 30.0
-RETRYABLE_STATUS_CODES = frozenset({429, *range(500, 600)})
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,61 +40,14 @@ class DatasetBoundary:
     maximum_sid: int
 
 
-class SocrataResponseError(RuntimeError):
-    """Raised when the Cook County Socrata API returns an invalid response."""
-
-
 ProgressCallback = Callable[[BuildingCharacteristicsBatch], None]
-
-
-def _retry_delay_seconds(response: httpx.Response | None, attempt: int) -> float:
-    if response is not None:
-        retry_after = response.headers.get("Retry-After")
-        if retry_after is not None:
-            try:
-                return min(float(retry_after), MAX_RETRY_DELAY_SECONDS)
-            except ValueError:
-                pass
-
-    return min(2 ** (attempt - 1), MAX_RETRY_DELAY_SECONDS)
 
 
 async def _request_rows(
     client: httpx.AsyncClient,
     params: dict[str, str | int],
 ) -> list[dict[str, Any]]:
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        response: httpx.Response | None = None
-
-        try:
-            response = await client.get(DATASET_URL, params=params)
-        except httpx.TransportError:
-            if attempt == MAX_ATTEMPTS:
-                raise
-        else:
-            if response.status_code not in RETRYABLE_STATUS_CODES:
-                response.raise_for_status()
-                payload = response.json()
-                if not isinstance(payload, list) or not all(
-                    isinstance(record, dict) for record in payload
-                ):
-                    raise SocrataResponseError("Socrata response was not a list of records")
-                return payload
-
-            if attempt == MAX_ATTEMPTS:
-                response.raise_for_status()
-
-        await asyncio.sleep(_retry_delay_seconds(response, attempt))
-
-    raise RuntimeError("Building-characteristics request exhausted all retry attempts")
-
-
-def _integer_field(record: dict[str, Any], field: str) -> int:
-    value = record.get(field)
-    try:
-        return int(value)
-    except (TypeError, ValueError) as error:
-        raise SocrataResponseError(f"Socrata response contained an invalid {field}") from error
+    return await request_rows(client, DATASET_URL, params)
 
 
 async def _latest_tax_year(client: httpx.AsyncClient) -> int:
@@ -202,8 +159,7 @@ async def _iter_building_batches(
 
 
 def _socrata_headers() -> dict[str, str]:
-    app_token = os.environ.get("COOK_SOCRATA_APP_TOKEN")
-    return {"X-App-Token": app_token} if app_token else {}
+    return app_token_headers("COOK_SOCRATA_APP_TOKEN")
 
 
 async def ingest_cook_county_building_characteristics(

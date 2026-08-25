@@ -17,6 +17,7 @@ through `COOK_SOCRATA_APP_TOKEN` to receive identified-client rate limits.
 ```bash
 uv run single-stair ingest cook-county-parcels
 uv run single-stair ingest cook-county-buildings --tax-year 2025
+uv run single-stair ingest chicago-zoning
 ```
 
 Omit `--tax-year` to use the latest year exposed by the Assessor dataset. The latest tax year may
@@ -29,6 +30,9 @@ counts, and checksums. Generated data is intentionally excluded from Git.
 The building-characteristics source is improvement-level, uniquely identified by PIN, tax year,
 and card. It covers Assessor single- and multi-family classes with fewer than seven units; it is not
 a complete inventory of condominium or large commercial buildings.
+
+The zoning source is the City of Chicago's current zoning-district polygon dataset. Raw zoning
+snapshots retain the source `objectid`, zoning attributes, source edit timestamp, and geometry.
 
 ## Checks
 
