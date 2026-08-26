@@ -64,6 +64,6 @@ def integer_field(record: dict[str, Any], field: str) -> int:
         raise SocrataResponseError(f"Socrata response contained an invalid {field}") from error
 
 
-def app_token_headers(environment_variable: str) -> dict[str, str]:
-    app_token = os.environ.get(environment_variable)
+def app_token_headers() -> dict[str, str]:
+    app_token = os.environ.get("SOCRATA_APP_TOKEN")
     return {"X-App-Token": app_token} if app_token else {}

@@ -151,7 +151,7 @@ async def ingest_chicago_zoning(
     if not 1 <= page_size <= 50_000:
         raise ValueError("page_size must be between 1 and 50000")
 
-    headers = app_token_headers("CHICAGO_SOCRATA_APP_TOKEN")
+    headers = app_token_headers()
     async with httpx.AsyncClient(headers=headers, timeout=120, follow_redirects=True) as client:
         boundary = await _dataset_boundary(client)
         seen_object_ids: set[int] = set()

@@ -159,7 +159,7 @@ async def _iter_building_batches(
 
 
 def _socrata_headers() -> dict[str, str]:
-    return app_token_headers("COOK_SOCRATA_APP_TOKEN")
+    return app_token_headers()
 
 
 async def ingest_cook_county_building_characteristics(
