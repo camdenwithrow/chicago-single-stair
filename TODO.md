@@ -7,13 +7,13 @@
 2. Ingest the data
 - [x] Download Cook County parcel geometry.
 - [x] Download Cook County single- and small-multifamily building characteristics.
-- [ ] Download current Chicago zoning.
-- [ ] Download Chicago building permits.
-- [ ] Download city-owned land.
-- [ ] Download CTA and Metra station locations.
-- [ ] Download Census data on families, bedrooms, overcrowding, and rent burden.
+- [x] Download current Chicago zoning.
+- [x] Download Chicago building permits.
+- [x] Download city-owned land.
+- [x] Download CTA and Metra station locations.
+- [x] Download Census data on families, bedrooms, overcrowding, and rent burden.
 - [x] Implement reusable dated GeoParquet snapshots with manifests and validation.
-- [ ] Save dated, unmodified source snapshots as Parquet.
+- [x] Save dated, unmodified source snapshots as Parquet.
 3. Clean and join everything
 - [ ] Standardize parcel PINs.
 - [ ] Select the latest record for each parcel and building.

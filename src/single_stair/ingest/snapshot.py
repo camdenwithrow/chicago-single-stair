@@ -158,6 +158,33 @@ class ParquetSnapshotWriter:
 class GeoParquetSnapshotWriter(ParquetSnapshotWriter):
     """Write immutable GeoJSON batches as GeoParquet snapshot parts."""
 
+    def write_geodataframe_batch(
+        self,
+        batch_number: int,
+        frame: gpd.GeoDataFrame,
+    ) -> SnapshotPart:
+        if self.output_crs is None:
+            raise SnapshotError("GeoParquet snapshots require an output CRS")
+        if frame.empty:
+            raise SnapshotError(f"Batch {batch_number} contains no features")
+        if frame.crs is None or "geometry" not in frame:
+            raise SnapshotError(f"Batch {batch_number} does not contain georeferenced geometry")
+        if frame.crs.to_string() != self.output_crs:
+            raise SnapshotError(
+                f"Batch {batch_number} uses {frame.crs.to_string()}, expected {self.output_crs}"
+            )
+        if frame.geometry.isna().any():
+            raise SnapshotError(f"Batch {batch_number} contains missing geometry")
+
+        part_path = self._part_path(batch_number)
+        invalid_geometry_count = int((~frame.geometry.is_valid).sum())
+        frame.to_parquet(part_path, index=False, compression="zstd")
+        return self._record_part(
+            part_path,
+            len(frame),
+            invalid_geometry_count=invalid_geometry_count,
+        )
+
     def write_geojson_batch(self, batch_number: int, payload: dict[str, Any]) -> SnapshotPart:
         if self.output_crs is None:
             raise SnapshotError("GeoParquet snapshots require an output CRS")
@@ -174,11 +201,4 @@ class GeoParquetSnapshotWriter(ParquetSnapshotWriter):
         if frame.geometry.isna().any():
             raise SnapshotError(f"Batch {batch_number} contains missing geometry")
 
-        part_path = self._part_path(batch_number)
-        invalid_geometry_count = int((~frame.geometry.is_valid).sum())
-        frame.to_parquet(part_path, index=False, compression="zstd")
-        return self._record_part(
-            part_path,
-            len(frame),
-            invalid_geometry_count=invalid_geometry_count,
-        )
+        return self.write_geodataframe_batch(batch_number, frame)
