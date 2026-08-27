@@ -37,6 +37,15 @@ class CliTests(unittest.TestCase):
         self.assertEqual(arguments.source, "census-housing")
         self.assertEqual(arguments.year, 2023)
 
+    def test_parses_cpi_year_range(self) -> None:
+        arguments = _parser().parse_args(
+            ["ingest", "bls-chicago-cpi", "--start-year", "2015", "--end-year", "2025"]
+        )
+
+        self.assertEqual(arguments.source, "bls-chicago-cpi")
+        self.assertEqual(arguments.start_year, 2015)
+        self.assertEqual(arguments.end_year, 2025)
+
     def test_parses_clean_and_join_transform(self) -> None:
         arguments = _parser().parse_args(["transform", "clean-and-join"])
 
@@ -80,6 +89,12 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(arguments.command, "transform")
         self.assertEqual(arguments.transformation, "family-housing-need")
+
+    def test_parses_permit_baseline_transform(self) -> None:
+        arguments = _parser().parse_args(["transform", "permit-baseline"])
+
+        self.assertEqual(arguments.command, "transform")
+        self.assertEqual(arguments.transformation, "permit-baseline")
 
     def test_parses_combined_opportunity_selection(self) -> None:
         arguments = _parser().parse_args(
