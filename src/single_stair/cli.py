@@ -21,6 +21,7 @@ from single_stair.ingest.socrata_table import TableBatch
 from single_stair.ingest.transit_stations import StationSnapshot, ingest_transit_stations
 from single_stair.scenarios import load_scenario_catalog
 from single_stair.transform.clean_and_join import build_clean_and_join
+from single_stair.transform.family_housing_need import build_family_housing_need
 from single_stair.transform.parcel_opportunity import build_parcel_opportunity
 
 
@@ -104,6 +105,10 @@ def _parser() -> argparse.ArgumentParser:
     )
     opportunity.add_argument("--policy", default="chicago_proposed")
     opportunity.add_argument("--estimate", default="median")
+    transformations.add_parser(
+        "family-housing-need",
+        help="Calculate tract-level family housing need and uncertainty",
+    )
     scenarios = commands.add_parser("scenarios", help="Inspect versioned building assumptions")
     scenario_commands = scenarios.add_subparsers(dest="scenario_command", required=True)
     show = scenario_commands.add_parser("show", help="Resolve a policy and estimate profile")
@@ -136,6 +141,8 @@ async def _run(arguments: argparse.Namespace) -> None:
             estimate_id=arguments.estimate,
             progress=_report_opportunity_progress,
         )
+    elif arguments.command == "transform" and arguments.transformation == "family-housing-need":
+        snapshot_path = await asyncio.to_thread(build_family_housing_need)
     elif arguments.command == "transform":
         staged = await asyncio.to_thread(
             build_clean_and_join,

@@ -147,3 +147,31 @@ nonstandard parcel types are retained with explicit review reasons. Missing smal
 building characteristics are never treated as proof that a parcel is vacant.
 Existing building area uses the Assessor tieback proration when a building is allocated across tax
 records, and material disagreement between Assessor and mapped parcel area is flagged for review.
+
+## Family housing need
+
+Build the tract-level family-housing-need snapshot after ingesting Census housing data and creating
+the staged parcel context:
+
+```bash
+uv run single-stair transform family-housing-need
+```
+
+The output is one GeoParquet row per Chicago Census tract under
+`data/final/family_housing_need/`. It reports renter families with own children under 18, occupied
+renter units from studio through five-plus bedrooms, 2+/3+/4+ bedroom supply and gap measures,
+overcrowding, severe overcrowding, rent burden, and severe rent burden. Estimates retain derived
+90% margins of error. The project owns this derived dataset; the U.S. Census Bureau owns the five
+source tables and tract geometry. Its grain and primary key are one row per `census_tract_geoid`.
+
+Three need views expose ACS uncertainty: `conservative` uses the lower bound, `median` uses the
+published point estimate, and `progressive` uses the upper bound. Each view includes percentile
+components and an equal-weight need score. The high-need/low-supply flag requires both the renter
+family-with-children share and inverse 3+ bedroom share to rank in Chicago's highest quartile, and
+requires the headline count margins of error not to exceed their estimates.
+
+This is a relative screening measure, not a determination that a household occupies an unsuitable
+unit. The bedroom inventory includes occupied renter units only and does not measure current
+availability, affordability, or condition. Definitions, official Census sources, uncertainty
+methods, and limitations are versioned in
+`src/single_stair/config/family_housing_need.v1.json`.
