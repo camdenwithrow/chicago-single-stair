@@ -81,6 +81,22 @@ class CliTests(unittest.TestCase):
         self.assertEqual(arguments.command, "transform")
         self.assertEqual(arguments.transformation, "family-housing-need")
 
+    def test_parses_combined_opportunity_selection(self) -> None:
+        arguments = _parser().parse_args(
+            [
+                "transform",
+                "combine-opportunity-need",
+                "--policy",
+                "illinois_sb4061",
+                "--estimate",
+                "progressive",
+            ]
+        )
+
+        self.assertEqual(arguments.transformation, "combine-opportunity-need")
+        self.assertEqual(arguments.policy, "illinois_sb4061")
+        self.assertEqual(arguments.estimate, "progressive")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,22 @@
+{
+  "config_version": "1.0.0",
+  "transit_bands": [
+    {"id": "within_quarter_mile", "label": "0-0.25 miles", "maximum_distance_ft": 1320},
+    {"id": "quarter_to_half_mile", "label": "0.25-0.5 miles", "maximum_distance_ft": 2640},
+    {"id": "half_to_one_mile", "label": "0.5-1 mile", "maximum_distance_ft": 5280},
+    {"id": "over_one_mile", "label": "More than 1 mile", "maximum_distance_ft": null}
+  ],
+  "half_mile_distance_ft": 2640,
+  "scenario_order": [
+    "current_two_stair",
+    "current_single_stair",
+    "upzoned_single_stair"
+  ],
+  "notes": [
+    "The combined parcel dataset retains every parcel in the source opportunity snapshot; it does not assign a composite candidate or recommendation label.",
+    "Need, transit, ownership, vacancy, underbuilt status, capacity changes, and review requirements remain independent fields so users can construct and compare their own screens.",
+    "Capacity values are analytical archetype tests. They are not a proposed unit mix, a legal entitlement, a financial feasibility result, or a prediction that construction will occur.",
+    "Tract-level need values are repeated on parcels for filtering only. Census counts and gaps must be aggregated from the tract-grain family_housing_need dataset, not summed from parcel rows.",
+    "Summary tables aggregate parcel counts and modeled capacity independently by community area, ward, zoning class, and transit band; they do not create a sparse cross-product of all four geographies."
+  ]
+}

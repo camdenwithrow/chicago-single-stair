@@ -175,3 +175,28 @@ unit. The bedroom inventory includes occupied renter units only and does not mea
 availability, affordability, or condition. Definitions, official Census sources, uncertainty
 methods, and limitations are versioned in
 `src/single_stair/config/family_housing_need.v1.json`.
+
+## Combined opportunity and need
+
+After creating the parcel-opportunity and family-housing-need snapshots, combine them with:
+
+```bash
+uv run single-stair transform combine-opportunity-need
+```
+
+Use `--policy` and `--estimate` to select a previously materialized parcel-opportunity snapshot.
+The command writes one GeoParquet row per source parcel to
+`data/final/parcel_opportunity_with_need_<policy>_<estimate>/` and separate long-form Parquet
+summaries for community area, ward, canonical zoning class, and transit band.
+
+The parcel output is deliberately neutral: every source parcel remains in the research universe.
+Need, half-mile transit proximity, city ownership, vacancy, underbuilt status, review requirements,
+and capacity changes are independent fields rather than inputs to a composite recommendation. This
+allows the visualization to show how results change as each screen is applied or removed.
+
+Each summary compares current-zoning two-stair, current-zoning single-stair, and modest-upzoning
+single-stair capacity for studio through five-plus-bedroom archetypes. Transit bands are 0-0.25,
+0.25-0.5, 0.5-1, and more than 1 mile. Tract-level Census values repeated on parcels are for
+filtering only and must not be summed; neighborhood need totals remain at their authoritative tract
+grain in `family_housing_need`. The versioned combined-analysis configuration records this contract
+and its limitations.

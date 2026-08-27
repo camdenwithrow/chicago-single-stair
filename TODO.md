@@ -42,11 +42,11 @@
 - [x] Calculate overcrowding and rent burden.
 - [x] Identify neighborhoods with high need and low large-unit supply.
 7. Combine opportunity with need
-- [ ] Find candidate parcels in high-need neighborhoods.
-- [ ] Find candidates within 0.5 miles of transit.
-- [ ] Find candidates on city-owned land.
-- [ ] Aggregate results by community area, ward, zoning class, and transit band.
-- [ ] Compare current zoning, single-stair, and upzoning scenarios.
+- [x] Find candidate parcels in high-need neighborhoods.
+- [x] Find candidates within 0.5 miles of transit.
+- [x] Find candidates on city-owned land.
+- [x] Aggregate results by community area, ward, zoning class, and transit band.
+- [x] Compare current zoning, single-stair, and upzoning scenarios.
 8. Create the permit baseline
 - [ ] Parse stories and dwelling units from permit descriptions.
 - [ ] Identify recent small multifamily permits.
@@ -54,6 +54,8 @@
 - [ ] Aggregate permits by year, neighborhood, size, cost, and review time.
 - [ ] Save these metrics for future before-and-after comparisons.
 9. Build the visualization
+** Keep the ui as simple as possible, do not embellish with over-styling, should
+be purely utilitarian, presenting the information. Use protomaps api for map tiles**
 - [ ] Create an interactive candidate-parcel map.
 - [ ] Add filters for scenario, transit distance, zoning, and ownership.
 - [ ] Add neighborhood family-housing-gap charts.
