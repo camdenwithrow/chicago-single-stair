@@ -77,6 +77,39 @@ class SocrataTableTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([batch.last_key for batch in batches], ["11", "N9"])
         self.assertEqual([batch.total for batch in batches], [2, 2])
 
+    async def test_numeric_keys_use_numeric_order_and_unquoted_predicates(self) -> None:
+        numeric_table = SocrataTable(
+            dataset="numbered_areas",
+            dataset_id="numbers-1",
+            domain="data.example.gov",
+            key="number",
+            grain=("number",),
+            key_type="number",
+        )
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            where = request.url.params["$where"]
+            self.assertNotIn("'", where)
+            if "number >" not in where:
+                return httpx.Response(200, json=[{"number": "1"}, {"number": "2"}])
+            if "number > 2" in where:
+                return httpx.Response(200, json=[{"number": "10"}])
+            return httpx.Response(200, json=[])
+
+        boundary = TableBoundary(expected_records=3, maximum_key="10")
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            batches = [
+                batch
+                async for batch in _iter_table_batches(
+                    client,
+                    numeric_table,
+                    boundary,
+                    page_size=2,
+                )
+            ]
+
+        self.assertEqual([batch.last_key for batch in batches], ["2", "10"])
+
     async def test_ingestion_writes_records_and_source_contract(self) -> None:
         async def batches(*_args, **_kwargs):
             yield TableBatch(

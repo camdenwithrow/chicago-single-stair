@@ -15,11 +15,11 @@
 - [x] Implement reusable dated GeoParquet snapshots with manifests and validation.
 - [x] Save dated, unmodified source snapshots as Parquet.
 3. Clean and join everything
-- [ ] Standardize parcel PINs.
-- [ ] Select the latest record for each parcel and building.
-- [ ] Spatially assign zoning, Census tract, ward, and community area.
-- [ ] Calculate distance from each parcel to transit.
-- [ ] Test how many records successfully join.
+- [x] Standardize parcel PINs.
+- [x] Select the latest record for each parcel and building.
+- [x] Spatially assign zoning, Census tract, ward, and community area.
+- [x] Calculate distance from each parcel to transit.
+- [x] Test how many records successfully join.
 4. Define building scenarios
 - [ ] Define 25-foot and 50-foot Chicago lot archetypes.
 - [ ] Define maximum stories and units per floor.

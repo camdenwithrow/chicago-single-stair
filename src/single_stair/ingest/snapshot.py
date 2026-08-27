@@ -117,6 +117,19 @@ class ParquetSnapshotWriter:
         pq.write_table(table, part_path, compression="zstd")
         return self._record_part(part_path, len(records))
 
+    def write_arrow_batch(
+        self,
+        batch_number: int,
+        batch: pa.RecordBatch | pa.Table,
+    ) -> SnapshotPart:
+        if batch.num_rows == 0:
+            raise SnapshotError(f"Batch {batch_number} contains no records")
+
+        part_path = self._part_path(batch_number)
+        table = pa.Table.from_batches([batch]) if isinstance(batch, pa.RecordBatch) else batch
+        pq.write_table(table, part_path, compression="zstd")
+        return self._record_part(part_path, table.num_rows)
+
     def commit(
         self,
         *,
