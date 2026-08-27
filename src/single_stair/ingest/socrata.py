@@ -1,5 +1,6 @@
 import asyncio
 import os
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import httpx
@@ -59,8 +60,11 @@ async def request_rows(
 def integer_field(record: dict[str, Any], field: str) -> int:
     value = record.get(field)
     try:
-        return int(value)
-    except (TypeError, ValueError) as error:
+        decimal = Decimal(str(value))
+        if decimal != decimal.to_integral_value():
+            raise ValueError
+        return int(decimal)
+    except (InvalidOperation, TypeError, ValueError) as error:
         raise SocrataResponseError(f"Socrata response contained an invalid {field}") from error
 
 

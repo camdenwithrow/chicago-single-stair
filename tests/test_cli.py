@@ -21,7 +21,12 @@ class CliTests(unittest.TestCase):
         self.assertEqual(arguments.source, "chicago-zoning")
 
     def test_parses_remaining_chicago_sources(self) -> None:
-        for source in ("chicago-building-permits", "chicago-city-land", "transit-stations"):
+        for source in (
+            "chicago-building-permits",
+            "chicago-city-land",
+            "chicago-boundaries",
+            "transit-stations",
+        ):
             with self.subTest(source=source):
                 arguments = _parser().parse_args(["ingest", source])
                 self.assertEqual(arguments.source, source)
@@ -31,6 +36,12 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(arguments.source, "census-housing")
         self.assertEqual(arguments.year, 2023)
+
+    def test_parses_clean_and_join_transform(self) -> None:
+        arguments = _parser().parse_args(["transform", "clean-and-join"])
+
+        self.assertEqual(arguments.command, "transform")
+        self.assertEqual(arguments.transformation, "clean-and-join")
 
 
 if __name__ == "__main__":

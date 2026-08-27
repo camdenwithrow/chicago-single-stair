@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from math import ceil
 from pathlib import Path
 from typing import Any
@@ -29,15 +30,18 @@ class BuildingCharacteristicsBatch:
     total: int
     tax_year: int
     records: list[dict[str, Any]]
-    first_sid: int
-    last_sid: int
+    first_pin: str
+    first_card: Decimal
+    last_pin: str
+    last_card: Decimal
 
 
 @dataclass(frozen=True, slots=True)
 class DatasetBoundary:
     tax_year: int
     expected_records: int
-    maximum_sid: int
+    maximum_pin: str
+    maximum_card: Decimal
 
 
 ProgressCallback = Callable[[BuildingCharacteristicsBatch], None]
@@ -61,21 +65,24 @@ async def _dataset_boundary(client: httpx.AsyncClient, tax_year: int) -> Dataset
     upper_rows = await _request_rows(
         client,
         {
-            "$select": ":sid",
+            "$select": "pin,card",
             "$where": f"year = {tax_year}",
-            "$order": ":sid DESC",
+            "$order": "pin DESC,card DESC",
             "$limit": 1,
         },
     )
     if len(upper_rows) != 1:
         raise SocrataResponseError(f"No building characteristics found for tax year {tax_year}")
 
-    maximum_sid = _integer_field(upper_rows[0], ":sid")
+    maximum_pin = str(upper_rows[0].get("pin", ""))
+    maximum_card = _decimal_field(upper_rows[0], "card")
+    if not maximum_pin:
+        raise SocrataResponseError(f"Building characteristics for {tax_year} have no PIN key")
     counts = await _request_rows(
         client,
         {
             "$select": "count(*) as expected_records",
-            "$where": f"year = {tax_year} AND :sid <= {maximum_sid}",
+            "$where": f"year = {tax_year} AND pin <= '{maximum_pin}'",
             "$limit": 1,
         },
     )
@@ -85,21 +92,33 @@ async def _dataset_boundary(client: httpx.AsyncClient, tax_year: int) -> Dataset
     return DatasetBoundary(
         tax_year=tax_year,
         expected_records=_integer_field(counts[0], "expected_records"),
-        maximum_sid=maximum_sid,
+        maximum_pin=maximum_pin,
+        maximum_card=maximum_card,
     )
+
+
+def _decimal_field(record: dict[str, Any], field: str) -> Decimal:
+    try:
+        return Decimal(str(record.get(field)))
+    except (InvalidOperation, TypeError) as error:
+        raise SocrataResponseError(f"Socrata response contained an invalid {field}") from error
 
 
 def _validate_page(
     records: list[dict[str, Any]],
     *,
     tax_year: int,
-    previous_sid: int,
-    maximum_sid: int,
-) -> tuple[int, int]:
-    sids = [_integer_field(record, ":sid") for record in records]
-    if sids != sorted(sids) or len(sids) != len(set(sids)):
-        raise SocrataResponseError("Building-characteristics :sid values are not unique and sorted")
-    if sids[0] <= previous_sid or sids[-1] > maximum_sid:
+    previous_key: tuple[str, Decimal] | None,
+    maximum_key: tuple[str, Decimal],
+) -> tuple[tuple[str, Decimal], tuple[str, Decimal]]:
+    keys = [(str(record.get("pin", "")), _decimal_field(record, "card")) for record in records]
+    if any(not pin for pin, _card in keys):
+        raise SocrataResponseError("Building-characteristics row is missing its PIN key")
+    if keys != sorted(keys) or len(keys) != len(set(keys)):
+        raise SocrataResponseError(
+            "Building-characteristics PIN/card keys are not unique and sorted"
+        )
+    if (previous_key is not None and keys[0] <= previous_key) or keys[-1] > maximum_key:
         raise SocrataResponseError("Building-characteristics page exceeded its snapshot boundary")
 
     for record in records:
@@ -110,7 +129,7 @@ def _validate_page(
                 "Building-characteristics row is missing its PIN or card key"
             )
 
-    return sids[0], sids[-1]
+    return keys[0], keys[-1]
 
 
 async def _iter_building_batches(
@@ -119,32 +138,35 @@ async def _iter_building_batches(
     *,
     page_size: int,
 ) -> AsyncIterator[BuildingCharacteristicsBatch]:
-    previous_sid = 0
+    previous_key: tuple[str, Decimal] | None = None
     page_number = 0
     total_pages = ceil(boundary.expected_records / page_size)
+    maximum_key = (boundary.maximum_pin, boundary.maximum_card)
 
-    while previous_sid < boundary.maximum_sid:
-        where = (
-            f"year = {boundary.tax_year} AND :sid > {previous_sid} "
-            f"AND :sid <= {boundary.maximum_sid}"
-        )
+    while previous_key is None or previous_key < maximum_key:
+        predicates = [f"year = {boundary.tax_year}", f"pin <= '{boundary.maximum_pin}'"]
+        if previous_key is not None:
+            previous_pin, previous_card = previous_key
+            predicates.append(
+                f"(pin > '{previous_pin}' OR (pin = '{previous_pin}' AND card > {previous_card}))"
+            )
         records = await _request_rows(
             client,
             {
-                "$select": ":sid,*",
-                "$where": where,
-                "$order": ":sid ASC",
+                "$select": "*",
+                "$where": " AND ".join(predicates),
+                "$order": "pin ASC,card ASC",
                 "$limit": page_size,
             },
         )
         if not records:
             break
 
-        first_sid, last_sid = _validate_page(
+        first_key, last_key = _validate_page(
             records,
             tax_year=boundary.tax_year,
-            previous_sid=previous_sid,
-            maximum_sid=boundary.maximum_sid,
+            previous_key=previous_key,
+            maximum_key=maximum_key,
         )
         page_number += 1
         yield BuildingCharacteristicsBatch(
@@ -152,10 +174,12 @@ async def _iter_building_batches(
             total=total_pages,
             tax_year=boundary.tax_year,
             records=records,
-            first_sid=first_sid,
-            last_sid=last_sid,
+            first_pin=first_key[0],
+            first_card=first_key[1],
+            last_pin=last_key[0],
+            last_card=last_key[1],
         )
-        previous_sid = last_sid
+        previous_key = last_key
 
 
 def _socrata_headers() -> dict[str, str]:
@@ -210,7 +234,8 @@ async def ingest_cook_county_building_characteristics(
                     "dataset_id": DATASET_ID,
                     "grain": ["pin", "year", "card"],
                     "tax_year": selected_tax_year,
-                    "maximum_sid": boundary.maximum_sid,
+                    "maximum_pin": boundary.maximum_pin,
+                    "maximum_card": str(boundary.maximum_card),
                     "page_size": page_size,
                     "app_token_used": bool(_socrata_headers()),
                 },

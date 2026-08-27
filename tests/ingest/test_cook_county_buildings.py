@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -16,20 +17,27 @@ from single_stair.ingest.cook_county_buildings import (
     _request_rows,
     ingest_cook_county_building_characteristics,
 )
+from single_stair.ingest.socrata import SocrataResponseError, integer_field
 
 
-def _building_record(sid: int, pin: str) -> dict:
+def _building_record(pin: str, card: str = "1.0") -> dict:
     return {
-        ":sid": str(sid),
         "pin": pin,
-        "year": "2025",
-        "card": "1",
+        "year": "2025.0",
+        "card": card,
         "char_yrblt": "1910",
         "char_bldg_sf": "2400",
     }
 
 
 class BuildingCharacteristicsRequestTests(unittest.IsolatedAsyncioTestCase):
+    def test_accepts_integral_decimal_source_values(self) -> None:
+        self.assertEqual(integer_field({"year": "2026.0"}, "year"), 2026)
+
+    def test_rejects_fractional_source_values(self) -> None:
+        with self.assertRaises(SocrataResponseError):
+            integer_field({"year": "2026.5"}, "year")
+
     async def test_retries_rate_limit(self) -> None:
         responses = iter(
             [
@@ -63,25 +71,36 @@ class BuildingCharacteristicsRequestTests(unittest.IsolatedAsyncioTestCase):
     async def test_keyset_paginates_to_fixed_upper_boundary(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             where = request.url.params["$where"]
-            if ":sid > 0 " in where:
+            if "pin >" not in where:
                 return httpx.Response(
                     200,
                     json=[
-                        _building_record(1, "01010000010000"),
-                        _building_record(2, "01010000020000"),
+                        _building_record("01010000010000"),
+                        _building_record("01010000020000"),
                     ],
                 )
-            if ":sid > 2 " in where:
-                return httpx.Response(200, json=[_building_record(3, "01010000030000")])
+            if "pin > '01010000020000'" in where:
+                return httpx.Response(200, json=[_building_record("01010000030000")])
             return httpx.Response(200, json=[])
 
-        boundary = DatasetBoundary(tax_year=2025, expected_records=3, maximum_sid=3)
+        boundary = DatasetBoundary(
+            tax_year=2025,
+            expected_records=3,
+            maximum_pin="01010000030000",
+            maximum_card=Decimal("1.0"),
+        )
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             batches = [
                 batch async for batch in _iter_building_batches(client, boundary, page_size=2)
             ]
 
-        self.assertEqual([batch.last_sid for batch in batches], [2, 3])
+        self.assertEqual(
+            [(batch.last_pin, batch.last_card) for batch in batches],
+            [
+                ("01010000020000", Decimal("1.0")),
+                ("01010000030000", Decimal("1.0")),
+            ],
+        )
         self.assertEqual([batch.number for batch in batches], [1, 2])
 
     async def test_ingestion_writes_snapshot_and_manifest(self) -> None:
@@ -90,12 +109,19 @@ class BuildingCharacteristicsRequestTests(unittest.IsolatedAsyncioTestCase):
                 number=1,
                 total=1,
                 tax_year=2025,
-                records=[_building_record(1, "01010000010000")],
-                first_sid=1,
-                last_sid=1,
+                records=[_building_record("01010000010000")],
+                first_pin="01010000010000",
+                first_card=Decimal("1.0"),
+                last_pin="01010000010000",
+                last_card=Decimal("1.0"),
             )
 
-        boundary = DatasetBoundary(tax_year=2025, expected_records=1, maximum_sid=1)
+        boundary = DatasetBoundary(
+            tax_year=2025,
+            expected_records=1,
+            maximum_pin="01010000010000",
+            maximum_card=Decimal("1.0"),
+        )
         with tempfile.TemporaryDirectory() as temporary_directory:
             with (
                 patch(

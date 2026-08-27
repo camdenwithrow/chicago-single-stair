@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 from math import ceil
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -26,6 +26,7 @@ class SocrataTable:
     domain: str
     key: str
     grain: tuple[str, ...]
+    key_type: Literal["text", "number"] = "text"
 
     @property
     def source_url(self) -> str:
@@ -52,6 +53,21 @@ ProgressCallback = Callable[[TableBatch], None]
 
 def _soql_string(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
+
+
+def _comparable_key(table: SocrataTable, value: str) -> str | int:
+    if table.key_type == "text":
+        return value
+    try:
+        return int(value)
+    except ValueError as error:
+        raise SocrataResponseError(
+            f"{table.dataset} key {table.key} contains a non-numeric value"
+        ) from error
+
+
+def _soql_key(table: SocrataTable, value: str) -> str:
+    return _soql_string(value) if table.key_type == "text" else str(_comparable_key(table, value))
 
 
 async def _dataset_boundary(
@@ -92,9 +108,12 @@ def _validate_page(
     keys = [str(record.get(table.key, "")) for record in records]
     if any(not key for key in keys):
         raise SocrataResponseError(f"{table.dataset} row is missing {table.key}")
-    if keys != sorted(keys) or len(keys) != len(set(keys)):
+    comparable_keys = [_comparable_key(table, key) for key in keys]
+    if comparable_keys != sorted(comparable_keys) or len(keys) != len(set(keys)):
         raise SocrataResponseError(f"{table.dataset} keys are not unique and sorted")
-    if (previous_key is not None and keys[0] <= previous_key) or keys[-1] > maximum_key:
+    if (
+        previous_key is not None and comparable_keys[0] <= _comparable_key(table, previous_key)
+    ) or comparable_keys[-1] > _comparable_key(table, maximum_key):
         raise SocrataResponseError(f"{table.dataset} page exceeded its snapshot boundary")
     return keys[0], keys[-1]
 
@@ -110,10 +129,12 @@ async def _iter_table_batches(
     page_number = 0
     total_pages = ceil(boundary.expected_records / page_size)
 
-    while previous_key is None or previous_key < boundary.maximum_key:
-        predicates = [f"{table.key} <= {_soql_string(boundary.maximum_key)}"]
+    while previous_key is None or _comparable_key(table, previous_key) < _comparable_key(
+        table, boundary.maximum_key
+    ):
+        predicates = [f"{table.key} <= {_soql_key(table, boundary.maximum_key)}"]
         if previous_key is not None:
-            predicates.insert(0, f"{table.key} > {_soql_string(previous_key)}")
+            predicates.insert(0, f"{table.key} > {_soql_key(table, previous_key)}")
 
         records = await request_rows(
             client,
