@@ -1,0 +1,47 @@
+{
+  "config_version": "1.0.0",
+  "headline_bedroom_threshold": 3,
+  "reported_bedroom_thresholds": [2, 3, 4],
+  "high_need_percentile": 0.75,
+  "reliability_rule": "A component estimate is flagged as reliable when its published 90% margin of error does not exceed the estimate.",
+  "score_components": [
+    "renter_households_with_children_share",
+    "inverse_renter_occupied_3_plus_bedroom_share",
+    "renter_overcrowding_rate",
+    "renter_cost_burden_rate"
+  ],
+  "sources": {
+    "B11005": {
+      "title": "Households by Presence of People Under 18 Years by Household Type",
+      "url": "https://api.census.gov/data/2024/acs/acs5/groups/B11005.html"
+    },
+    "B25115": {
+      "title": "Tenure by Household Type and Presence and Age of Own Children",
+      "url": "https://api.census.gov/data/2024/acs/acs5/groups/B25115.html"
+    },
+    "B25042": {
+      "title": "Tenure by Bedrooms",
+      "url": "https://api.census.gov/data/2024/acs/acs5/groups/B25042.html"
+    },
+    "B25014": {
+      "title": "Tenure by Occupants per Room",
+      "url": "https://api.census.gov/data/2024/acs/acs5/groups/B25014.html"
+    },
+    "B25070": {
+      "title": "Gross Rent as a Percentage of Household Income in the Past 12 Months",
+      "url": "https://api.census.gov/data/2024/acs/acs5/groups/B25070.html"
+    },
+    "acs_accuracy": {
+      "title": "Understanding and Using American Community Survey Data: What All Data Users Need to Know",
+      "url": "https://www.census.gov/content/dam/Census/library/publications/2020/acs/acs_general_handbook_2020.pdf"
+    }
+  },
+  "notes": [
+    "Renter households with children means renter-occupied family households with own children of the householder under 18; it does not include every household containing a child.",
+    "Large-unit supply counts occupied renter units, not vacant units currently offered for rent, and does not establish affordability, condition, or availability to a particular household.",
+    "The family-housing gap subtracts occupied renter units at or above a bedroom threshold from renter families with own children and floors the result at zero. It is an indicator, not a count of households proven to need a different unit.",
+    "Margins of error for sums and differences use the Census Bureau root-sum-of-squares approximation. Ratio margins use the subset proportion formula with the Census fallback when its radicand is negative.",
+    "Conservative, median, and progressive need estimates are the lower bound, point estimate, and upper bound of the derived 90% margin-of-error interval, clipped to valid count or percentage ranges.",
+    "High-need rankings compare Chicago Census tracts with usable denominators; percentile scores are relative, not eligibility or investment recommendations."
+  ]
+}

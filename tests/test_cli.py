@@ -75,6 +75,12 @@ class CliTests(unittest.TestCase):
         self.assertEqual(arguments.policy, "illinois_sb4061")
         self.assertEqual(arguments.estimate, "conservative")
 
+    def test_parses_family_housing_need_transform(self) -> None:
+        arguments = _parser().parse_args(["transform", "family-housing-need"])
+
+        self.assertEqual(arguments.command, "transform")
+        self.assertEqual(arguments.transformation, "family-housing-need")
+
 
 if __name__ == "__main__":
     unittest.main()

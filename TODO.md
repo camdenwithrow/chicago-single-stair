@@ -36,11 +36,11 @@
 - [x] Flag vacant, city-owned, and underbuilt parcels.
 - [x] Flag results that require additional legal or site review.
 6. Calculate family housing need
-- [ ] Calculate renter households with children by Census tract.
-- [ ] Calculate 3+ bedroom rental supply.
-- [ ] Calculate the family-housing supply gap.
-- [ ] Calculate overcrowding and rent burden.
-- [ ] Identify neighborhoods with high need and low large-unit supply.
+- [x] Calculate renter households with children by Census tract.
+- [x] Calculate 3+ bedroom rental supply.
+- [x] Calculate the family-housing supply gap.
+- [x] Calculate overcrowding and rent burden.
+- [x] Identify neighborhoods with high need and low large-unit supply.
 7. Combine opportunity with need
 - [ ] Find candidate parcels in high-need neighborhoods.
 - [ ] Find candidates within 0.5 miles of transit.
