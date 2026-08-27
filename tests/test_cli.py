@@ -59,6 +59,22 @@ class CliTests(unittest.TestCase):
         self.assertEqual(arguments.policy, "illinois_sb4061")
         self.assertEqual(arguments.estimate, "progressive")
 
+    def test_parses_parcel_opportunity_selection(self) -> None:
+        arguments = _parser().parse_args(
+            [
+                "transform",
+                "parcel-opportunity",
+                "--policy",
+                "illinois_sb4061",
+                "--estimate",
+                "conservative",
+            ]
+        )
+
+        self.assertEqual(arguments.transformation, "parcel-opportunity")
+        self.assertEqual(arguments.policy, "illinois_sb4061")
+        self.assertEqual(arguments.estimate, "conservative")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -28,13 +28,13 @@
 - [x] Use 3+ bedrooms as the headline family-sized measure and report 2+ and 4+.
 - [x] Store all assumptions and their sources in versioned configuration files.
 5. Calculate parcel opportunity
-- [ ] Calculate existing built FAR.
-- [ ] Calculate maximum FAR under current zoning.
-- [ ] Estimate units under current zoning.
-- [ ] Estimate units under a modest-upzoning scenario.
-- [ ] Estimate 3+ bedroom units under each scenario.
-- [ ] Flag vacant, city-owned, and underbuilt parcels.
-- [ ] Flag results that require additional legal or site review.
+- [x] Calculate existing built FAR.
+- [x] Calculate maximum FAR under current zoning.
+- [x] Estimate units under current zoning.
+- [x] Estimate units under a modest-upzoning scenario.
+- [x] Estimate 3+ bedroom units under each scenario.
+- [x] Flag vacant, city-owned, and underbuilt parcels.
+- [x] Flag results that require additional legal or site review.
 6. Calculate family housing need
 - [ ] Calculate renter households with children by Census tract.
 - [ ] Calculate 3+ bedroom rental supply.
