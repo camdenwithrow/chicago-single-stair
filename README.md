@@ -93,3 +93,34 @@ uv run ruff check src tests
 uv run ruff format --check src tests
 uv run python -m unittest discover -s tests -v
 ```
+
+## Building scenarios
+
+Inspect the default Chicago-proposal and median-estimate assumptions with:
+
+```bash
+uv run single-stair scenarios show
+```
+
+Select the proposed Illinois alternative and a different evidence-backed estimate level with:
+
+```bash
+uv run single-stair scenarios show --policy illinois_sb4061 --estimate conservative
+```
+
+The versioned scenario configuration separates fixed policy limits from analytical estimates.
+Chicago's proposal is the default and allows up to five stories above grade and four units per
+story; the Illinois SB4061 alternative allows up to six stories and four units per story if
+enacted. Both are proposals, not current legal entitlements.
+
+The estimate profiles apply a common interpretation throughout the model:
+
+- `conservative` uses the smallest observed stair-efficiency gain and spacious unit assumptions.
+- `median` uses the median prototype efficiency gain and weighted median AHS size ranges.
+- `progressive` uses the largest observed efficiency gain and IHDA minimum unit sizes.
+
+Every profile reports studio through five-plus-bedroom units. The headline family-sized measure
+is three-plus bedrooms, with two-plus and four-plus results retained for comparison. Sources,
+sample sizes, fallbacks, and limitations are stored with the assumptions in
+`src/single_stair/config/building_scenarios.v1.json`. These scenarios are analytical capacity
+tests, not architectural designs or determinations that a parcel is legally buildable.

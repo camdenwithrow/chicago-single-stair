@@ -21,12 +21,12 @@
 - [x] Calculate distance from each parcel to transit.
 - [x] Test how many records successfully join.
 4. Define building scenarios
-- [ ] Define 25-foot and 50-foot Chicago lot archetypes.
-- [ ] Define maximum stories and units per floor.
-- [ ] Define single-stair and two-stair efficiency assumptions.
-- [ ] Define low, middle, and high average unit sizes.
-- [ ] Define “family-sized” as 3+ bedrooms.
-- [ ] Store all assumptions in versioned configuration files.
+- [x] Define 25-foot and 50-foot Chicago lot archetypes.
+- [x] Define maximum stories and units per floor.
+- [x] Define single-stair and two-stair efficiency assumptions.
+- [x] Define conservative, median, and progressive unit-size assumptions.
+- [x] Use 3+ bedrooms as the headline family-sized measure and report 2+ and 4+.
+- [x] Store all assumptions and their sources in versioned configuration files.
 5. Calculate parcel opportunity
 - [ ] Calculate existing built FAR.
 - [ ] Calculate maximum FAR under current zoning.

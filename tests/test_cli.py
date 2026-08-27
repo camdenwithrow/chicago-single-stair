@@ -43,6 +43,22 @@ class CliTests(unittest.TestCase):
         self.assertEqual(arguments.command, "transform")
         self.assertEqual(arguments.transformation, "clean-and-join")
 
+    def test_parses_scenario_selection(self) -> None:
+        arguments = _parser().parse_args(
+            [
+                "scenarios",
+                "show",
+                "--policy",
+                "illinois_sb4061",
+                "--estimate",
+                "progressive",
+            ]
+        )
+
+        self.assertEqual(arguments.command, "scenarios")
+        self.assertEqual(arguments.policy, "illinois_sb4061")
+        self.assertEqual(arguments.estimate, "progressive")
+
 
 if __name__ == "__main__":
     unittest.main()

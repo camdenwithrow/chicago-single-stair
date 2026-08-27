@@ -1,0 +1,235 @@
+{
+  "config_version": "1.0.0",
+  "title": "Chicago single-stair building scenarios",
+  "defaults": {
+    "policy": "chicago_proposed",
+    "estimate": "median"
+  },
+  "sources": {
+    "chicago_proposed_ordinance": {
+      "organization": "Chicago City Clerk",
+      "title": "SO2025-0017571 substitute ordinance",
+      "url": "https://occprodstoragev1.blob.core.usgovcloudapi.net/matterattachmentspublic/d3f241be-fedb-4135-8f10-f4f684f957ce.pdf",
+      "accessed_on": "2026-08-27",
+      "note": "Official proposed ordinance text; the City Clerk record was in committee when accessed."
+    },
+    "illinois_sb4061": {
+      "organization": "Illinois General Assembly",
+      "title": "SB4061, 104th General Assembly",
+      "url": "https://www.ilga.gov/documents/legislation/104/SB/PDF/10400SB4061.pdf",
+      "accessed_on": "2026-08-27",
+      "note": "Official introduced bill text; this is a proposed alternative and not current law."
+    },
+    "cook_county_parcels": {
+      "organization": "Cook County",
+      "title": "Cook County Parcel FeatureServer",
+      "url": "https://gis.cookcountyil.gov/hosting/rest/services/Hosted/Parcel/FeatureServer/0",
+      "accessed_on": "2026-08-27",
+      "note": "Official parcel geometry used to validate 25-foot and 50-foot Chicago lot archetypes."
+    },
+    "single_stair_prototypes": {
+      "organization": "Public Architecture",
+      "title": "Single Stair Alternative Solutions prototypes",
+      "url": "https://singlestair.ca/Prototypes",
+      "accessed_on": "2026-08-27",
+      "note": "Six Canadian schematic prototypes report single-stair efficiency gains from 4.0 to 15.2 percentage points."
+    },
+    "boston_single_stair": {
+      "organization": "Harvard Joint Center for Housing Studies, Boston Indicators, and Utile",
+      "title": "Legalizing Mid-Rise Single-Stair Housing in Massachusetts",
+      "url": "https://www.jchs.harvard.edu/sites/default/files/research/files/harvard_jchs_utile_boston_indicators_single-stair_housing_october_10_2024_0.pdf",
+      "accessed_on": "2026-08-27",
+      "note": "A small two-stair reference plan is 82 percent efficient; the comparable single-stair plan is 92 percent efficient."
+    },
+    "ihda_unit_standards": {
+      "organization": "Illinois Housing Development Authority",
+      "title": "2021 Standards for Architectural Planning and Construction",
+      "url": "https://www.ihda.org/wp-content/uploads/2021/09/2021-Standards-for-Arch-Planning-and-Construc.pdf",
+      "accessed_on": "2026-08-27",
+      "note": "Illinois minimum acceptable new-construction dwelling-unit sizes, not observed averages."
+    },
+    "ahs_2023": {
+      "organization": "United States Census Bureau and Department of Housing and Urban Development",
+      "title": "2023 American Housing Survey National Public Use File v1.1",
+      "url": "https://www.census.gov/programs-surveys/ahs/data/2023/ahs-2023-public-use-file--puf-/ahs-2023-national-public-use-file--puf-.html",
+      "accessed_on": "2026-08-27",
+      "note": "Weighted renter-occupied multifamily observations; UNITSIZE is published in broad ranges rather than exact square feet."
+    },
+    "chicago_aro": {
+      "organization": "City of Chicago",
+      "title": "Municipal Code section 2-44-085(V), Incentive for family-sized units",
+      "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2693409",
+      "accessed_on": "2026-08-27",
+      "note": "Chicago policy uses two or more bedrooms as a family-sized reference."
+    },
+    "acs_b25042": {
+      "organization": "United States Census Bureau",
+      "title": "ACS table B25042, Tenure by Bedrooms",
+      "url": "https://api.census.gov/data/2024/acs/acs5/groups/B25042.html",
+      "accessed_on": "2026-08-27",
+      "note": "Supports studio, one-, two-, three-, four-, and five-plus-bedroom reporting."
+    }
+  },
+  "policies": {
+    "chicago_proposed": {
+      "name": "Chicago proposed single-stair ordinance",
+      "jurisdiction": "Chicago, Illinois",
+      "status": "proposed_in_committee",
+      "maximum_stories_above_grade": 5,
+      "maximum_units_per_story": 4,
+      "source_ids": [
+        "chicago_proposed_ordinance"
+      ],
+      "notes": [
+        "The five-story limit is the total number of stories above grade, not five stories above a ground floor.",
+        "The ordinance also contains sprinkler, corridor, travel-distance, alarm, detection, and door requirements that require design review.",
+        "This analytical envelope does not establish that a parcel or design is legally buildable."
+      ]
+    },
+    "illinois_sb4061": {
+      "name": "Illinois SB4061 alternative",
+      "jurisdiction": "Illinois",
+      "status": "proposed",
+      "maximum_stories_above_grade": 6,
+      "maximum_units_per_story": 4,
+      "source_ids": [
+        "illinois_sb4061"
+      ],
+      "notes": [
+        "The introduced bill describes conditions under which a municipality or county could not prohibit a single-stair building beginning January 1, 2027 if enacted.",
+        "This analytical envelope does not establish that a parcel or design is legally buildable."
+      ]
+    }
+  },
+  "lot_archetypes": {
+    "chicago_25x125": {
+      "name": "25-foot Chicago lot",
+      "width_ft": 25.0,
+      "depth_ft": 125.0,
+      "match_width_min_ft": 23.0,
+      "match_width_max_ft": 27.0,
+      "match_depth_min_ft": 120.0,
+      "match_depth_max_ft": 130.0,
+      "source_ids": [
+        "cook_county_parcels"
+      ]
+    },
+    "chicago_50x125": {
+      "name": "50-foot Chicago lot",
+      "width_ft": 50.0,
+      "depth_ft": 125.0,
+      "match_width_min_ft": 48.0,
+      "match_width_max_ft": 52.0,
+      "match_depth_min_ft": 120.0,
+      "match_depth_max_ft": 130.0,
+      "source_ids": [
+        "cook_county_parcels"
+      ]
+    }
+  },
+  "estimate_profiles": {
+    "conservative": {
+      "name": "Conservative opportunity estimate",
+      "description": "Uses the smallest observed stair-efficiency gain and spacious unit-size assumptions to avoid overstating unit capacity.",
+      "two_stair_efficiency": 0.82,
+      "single_stair_efficiency": 0.86,
+      "efficiency_gain_percentage_points": 4.0,
+      "unit_size_method": "Midpoint of the weighted 75th-percentile AHS size range. Chicago renter-occupied multifamily observations are used for zero through three bedrooms; the national sample is used for four and five-plus bedrooms.",
+      "unit_sizes_sqft": {
+        "studio": 625,
+        "one_bedroom": 875,
+        "two_bedroom": 1250,
+        "three_bedroom": 1750,
+        "four_bedroom": 1750,
+        "five_plus_bedroom": 2250
+      },
+      "source_ids": [
+        "single_stair_prototypes",
+        "boston_single_stair",
+        "ahs_2023"
+      ]
+    },
+    "median": {
+      "name": "Median opportunity estimate",
+      "description": "Uses the median observed prototype efficiency gain and weighted median AHS size ranges.",
+      "two_stair_efficiency": 0.82,
+      "single_stair_efficiency": 0.904,
+      "efficiency_gain_percentage_points": 8.4,
+      "unit_size_method": "Midpoint of the weighted median AHS size range. Chicago renter-occupied multifamily observations are used for zero through three bedrooms; the national sample is used for four bedrooms. Five-plus falls back to the IHDA minimum because the AHS sample is too sparse.",
+      "unit_sizes_sqft": {
+        "studio": 625,
+        "one_bedroom": 625,
+        "two_bedroom": 1250,
+        "three_bedroom": 1250,
+        "four_bedroom": 1250,
+        "five_plus_bedroom": 1250
+      },
+      "source_ids": [
+        "single_stair_prototypes",
+        "boston_single_stair",
+        "ahs_2023",
+        "ihda_unit_standards"
+      ]
+    },
+    "progressive": {
+      "name": "Progressive opportunity estimate",
+      "description": "Uses the largest observed stair-efficiency gain and Illinois minimum unit sizes to test the upper bound of compact family-oriented construction.",
+      "two_stair_efficiency": 0.82,
+      "single_stair_efficiency": 0.972,
+      "efficiency_gain_percentage_points": 15.2,
+      "unit_size_method": "IHDA minimum acceptable new-construction dwelling-unit sizes; two-bedroom assumes one bathroom.",
+      "unit_sizes_sqft": {
+        "studio": 300,
+        "one_bedroom": 525,
+        "two_bedroom": 700,
+        "three_bedroom": 950,
+        "four_bedroom": 1100,
+        "five_plus_bedroom": 1250
+      },
+      "source_ids": [
+        "single_stair_prototypes",
+        "boston_single_stair",
+        "ihda_unit_standards"
+      ]
+    }
+  },
+  "unit_size_evidence": {
+    "ahs_filters": "2023 PUF; Chicago-Naperville-Elgin CBSA 16980; renter occupied; buildings with two or more apartments; weighted by WEIGHT.",
+    "chicago_unweighted_sample_by_bedrooms": {
+      "studio": 24,
+      "one_bedroom": 182,
+      "two_bedroom": 174,
+      "three_bedroom": 60
+    },
+    "national_fallback_unweighted_sample_by_bedrooms": {
+      "four_bedroom": 140,
+      "five_plus_bedroom": 15
+    },
+    "limitations": [
+      "AHS UNITSIZE is categorical; point estimates use range midpoints and are not measured average square footage.",
+      "The national five-plus-bedroom sample is too small for the median profile, so that value uses the IHDA minimum.",
+      "These values are capacity assumptions, not architectural plans or market forecasts."
+    ]
+  },
+  "bedroom_reporting": {
+    "categories": [
+      "studio",
+      "one_bedroom",
+      "two_bedroom",
+      "three_bedroom",
+      "four_bedroom",
+      "five_plus_bedroom"
+    ],
+    "default_family_minimum_bedrooms": 3,
+    "reported_family_thresholds": [
+      2,
+      3,
+      4
+    ],
+    "source_ids": [
+      "chicago_aro",
+      "acs_b25042"
+    ],
+    "note": "Three-plus bedrooms is the headline project measure. Two-plus is also reported because Chicago's ARO uses it as a family-sized reference; four-plus is reported as a larger-family sensitivity."
+  }
+}
