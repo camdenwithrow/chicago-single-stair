@@ -21,6 +21,7 @@ from single_stair.ingest.socrata_table import TableBatch
 from single_stair.ingest.transit_stations import StationSnapshot, ingest_transit_stations
 from single_stair.scenarios import load_scenario_catalog
 from single_stair.transform.clean_and_join import build_clean_and_join
+from single_stair.transform.parcel_opportunity import build_parcel_opportunity
 
 
 def _report_parcel_progress(batch: ParcelBatch, feature_count: int) -> None:
@@ -54,6 +55,10 @@ def _report_boundary_progress(dataset: str, batch: TableBatch) -> None:
 def _report_transform_progress(part: int, total: int, chicago_parcels: int) -> None:
     if part == total or part % 25 == 0:
         print(f"Processed parcel part {part:,}/{total:,} ({chicago_parcels:,} Chicago parcels)")
+
+
+def _report_opportunity_progress(part: int, total: int, parcels: int) -> None:
+    print(f"Calculated opportunity part {part:,}/{total:,} ({parcels:,} parcels)")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -93,6 +98,12 @@ def _parser() -> argparse.ArgumentParser:
         "clean-and-join",
         help="Normalize keys, select latest records, and add spatial context",
     )
+    opportunity = transformations.add_parser(
+        "parcel-opportunity",
+        help="Calculate zoning and bedroom-size capacity for each parcel",
+    )
+    opportunity.add_argument("--policy", default="chicago_proposed")
+    opportunity.add_argument("--estimate", default="median")
     scenarios = commands.add_parser("scenarios", help="Inspect versioned building assumptions")
     scenario_commands = scenarios.add_subparsers(dest="scenario_command", required=True)
     show = scenario_commands.add_parser("show", help="Resolve a policy and estimate profile")
@@ -118,7 +129,14 @@ async def _run(arguments: argparse.Namespace) -> None:
             )
         )
         return
-    if arguments.command == "transform":
+    if arguments.command == "transform" and arguments.transformation == "parcel-opportunity":
+        snapshot_path = await asyncio.to_thread(
+            build_parcel_opportunity,
+            policy_id=arguments.policy,
+            estimate_id=arguments.estimate,
+            progress=_report_opportunity_progress,
+        )
+    elif arguments.command == "transform":
         staged = await asyncio.to_thread(
             build_clean_and_join,
             progress=_report_transform_progress,

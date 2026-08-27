@@ -124,3 +124,26 @@ is three-plus bedrooms, with two-plus and four-plus results retained for compari
 sample sizes, fallbacks, and limitations are stored with the assumptions in
 `src/single_stair/config/building_scenarios.v1.json`. These scenarios are analytical capacity
 tests, not architectural designs or determinations that a parcel is legally buildable.
+
+## Parcel opportunity
+
+After building the staged parcel context, calculate the default Chicago-proposal and median
+opportunity snapshot with:
+
+```bash
+uv run single-stair transform parcel-opportunity
+```
+
+Use `--policy` and `--estimate` to materialize another configured combination. The output is one
+GeoParquet row per parcel under `data/final/parcel_opportunity_<policy>_<estimate>/`. It includes
+existing and allowed FAR, current- and upzoned-density limits, city ownership, conservative vacancy
+and underbuilt flags, and independent capacity estimates for every bedroom size under current
+two-stair, current single-stair, and modest-upzoning single-stair conditions.
+
+The modest-upzoning scenario advances supported residential districts by one density step and B/C
+districts by one dash suffix. It is an analytical comparison rather than a rezoning recommendation.
+Unsupported zoning, conditional residential uses, missing Assessor coverage, unitized parcels, and
+nonstandard parcel types are retained with explicit review reasons. Missing small-residential
+building characteristics are never treated as proof that a parcel is vacant.
+Existing building area uses the Assessor tieback proration when a building is allocated across tax
+records, and material disagreement between Assessor and mapped parcel area is flagged for review.

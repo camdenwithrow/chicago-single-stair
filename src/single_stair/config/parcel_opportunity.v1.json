@@ -1,0 +1,63 @@
+{
+  "config_version": "1.0.0",
+  "sources": {
+    "chicago_residential_bulk": {
+      "title": "Chicago Zoning Ordinance 17-2-0300 Residential Bulk and Density Standards",
+      "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2681113",
+      "accessed_on": "2026-08-27"
+    },
+    "chicago_business_commercial_bulk": {
+      "title": "Chicago Zoning Ordinance 17-3-0400 Business and Commercial Bulk and Density Standards",
+      "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2681378",
+      "accessed_on": "2026-08-27"
+    },
+    "chicago_allowed_uses": {
+      "title": "Chicago Zoning Ordinance 17-2-0200 and 17-3-0200 Allowed Uses",
+      "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2681344",
+      "accessed_on": "2026-08-27"
+    }
+  },
+  "underbuilt_thresholds": {
+    "maximum_used_far_share": 0.5,
+    "minimum_unused_far": 0.5,
+    "maximum_land_area_relative_difference": 0.2
+  },
+  "zoning_aliases": {
+    "RT-4A": "RT-4"
+  },
+  "business_commercial_residential_permissions": {
+    "B1": "conditional_ground_floor",
+    "B2": "by_right",
+    "B3": "conditional_ground_floor",
+    "C1": "conditional_ground_floor",
+    "C2": "conditional_ground_floor"
+  },
+  "zoning_rules": {
+    "RS-1": {"maximum_far": 0.5, "minimum_lot_area_per_unit_sqft": 6250, "maximum_dwelling_units": 1, "residential_permission": "limited", "upzoned_zone_class": "RT-4"},
+    "RS-2": {"maximum_far": 0.65, "minimum_lot_area_per_unit_sqft": 5000, "maximum_dwelling_units": 1, "residential_permission": "limited", "upzoned_zone_class": "RT-4"},
+    "RS-3": {"maximum_far": 0.9, "minimum_lot_area_per_unit_sqft": 2500, "maximum_dwelling_units": 2, "residential_permission": "limited", "upzoned_zone_class": "RT-4"},
+    "RT-3.5": {"maximum_far": 1.05, "minimum_lot_area_per_unit_sqft": 1250, "maximum_dwelling_units": null, "residential_permission": "by_right", "upzoned_zone_class": "RT-4"},
+    "RT-4": {"maximum_far": 1.2, "minimum_lot_area_per_unit_sqft": 1000, "maximum_dwelling_units": null, "residential_permission": "by_right", "upzoned_zone_class": "RM-5"},
+    "RM-4.5": {"maximum_far": 1.7, "minimum_lot_area_per_unit_sqft": 700, "maximum_dwelling_units": null, "residential_permission": "by_right", "upzoned_zone_class": "RM-5"},
+    "RM-5": {"maximum_far": 2.0, "minimum_lot_area_per_unit_sqft": 400, "maximum_dwelling_units": null, "residential_permission": "by_right", "upzoned_zone_class": "RM-5.5"},
+    "RM-5.5": {"maximum_far": 2.5, "minimum_lot_area_per_unit_sqft": 400, "maximum_dwelling_units": null, "residential_permission": "by_right", "upzoned_zone_class": "RM-6"},
+    "RM-6": {"maximum_far": 4.4, "minimum_lot_area_per_unit_sqft": 300, "maximum_dwelling_units": null, "residential_permission": "by_right", "upzoned_zone_class": "RM-6.5"},
+    "RM-6.5": {"maximum_far": 6.6, "minimum_lot_area_per_unit_sqft": 300, "maximum_dwelling_units": null, "residential_permission": "by_right", "upzoned_zone_class": "RM-6.5"},
+    "B-1": {"maximum_far": 1.2, "minimum_lot_area_per_unit_sqft": 2500, "maximum_dwelling_units": null, "residential_permission": "conditional_ground_floor", "upzoned_zone_class": "B-1.5"},
+    "B-1.5": {"maximum_far": 1.5, "minimum_lot_area_per_unit_sqft": 1350, "maximum_dwelling_units": null, "residential_permission": "conditional_ground_floor", "upzoned_zone_class": "B-2"},
+    "B-2": {"maximum_far": 2.2, "minimum_lot_area_per_unit_sqft": 1000, "maximum_dwelling_units": null, "residential_permission": "conditional_ground_floor", "upzoned_zone_class": "B-3"},
+    "B-3": {"maximum_far": 3.0, "minimum_lot_area_per_unit_sqft": 400, "maximum_dwelling_units": null, "residential_permission": "conditional_ground_floor", "upzoned_zone_class": "B-5"},
+    "B-5": {"maximum_far": 5.0, "minimum_lot_area_per_unit_sqft": 200, "maximum_dwelling_units": null, "residential_permission": "conditional_ground_floor", "upzoned_zone_class": "B-5"},
+    "C-1": {"maximum_far": 1.2, "minimum_lot_area_per_unit_sqft": 2500, "maximum_dwelling_units": null, "residential_permission": "conditional_ground_floor", "upzoned_zone_class": "C-1.5"},
+    "C-1.5": {"maximum_far": 1.5, "minimum_lot_area_per_unit_sqft": 1350, "maximum_dwelling_units": null, "residential_permission": "conditional_ground_floor", "upzoned_zone_class": "C-2"},
+    "C-2": {"maximum_far": 2.2, "minimum_lot_area_per_unit_sqft": 1000, "maximum_dwelling_units": null, "residential_permission": "conditional_ground_floor", "upzoned_zone_class": "C-3"},
+    "C-3": {"maximum_far": 3.0, "minimum_lot_area_per_unit_sqft": 400, "maximum_dwelling_units": null, "residential_permission": "conditional_ground_floor", "upzoned_zone_class": "C-5"},
+    "C-5": {"maximum_far": 5.0, "minimum_lot_area_per_unit_sqft": 200, "maximum_dwelling_units": null, "residential_permission": "conditional_ground_floor", "upzoned_zone_class": "C-5"}
+  },
+  "notes": [
+    "B and C rules are keyed by dash density because FAR and minimum lot area per unit do not vary by B1/B2/B3 or C1/C2 prefixes.",
+    "C3 districts prohibit household living and are excluded during zone parsing even though dash-3 bulk values are retained for validation.",
+    "Transit-served reductions, bonuses, contextual exceptions, ADUs, parking, setbacks, height, affordability incentives, and planned developments are excluded and require review.",
+    "The one-step upzoning map is an analytical scenario, not a rezoning recommendation."
+  ]
+}
