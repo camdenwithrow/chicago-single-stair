@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from single_stair.ingest.cook_county_parcels import (
 )
 from single_stair.ingest.socrata_table import TableBatch
 from single_stair.ingest.transit_stations import StationSnapshot, ingest_transit_stations
+from single_stair.scenarios import load_scenario_catalog
 from single_stair.transform.clean_and_join import build_clean_and_join
 
 
@@ -91,10 +93,31 @@ def _parser() -> argparse.ArgumentParser:
         "clean-and-join",
         help="Normalize keys, select latest records, and add spatial context",
     )
+    scenarios = commands.add_parser("scenarios", help="Inspect versioned building assumptions")
+    scenario_commands = scenarios.add_subparsers(dest="scenario_command", required=True)
+    show = scenario_commands.add_parser("show", help="Resolve a policy and estimate profile")
+    show.add_argument("--policy", help="Policy scenario ID; defaults to Chicago proposed")
+    show.add_argument(
+        "--estimate",
+        help="Estimate profile ID; defaults to median",
+    )
+    show.add_argument("--config", type=Path, help="Optional scenario configuration file")
     return parser
 
 
 async def _run(arguments: argparse.Namespace) -> None:
+    if arguments.command == "scenarios":
+        catalog = load_scenario_catalog(arguments.config)
+        print(
+            json.dumps(
+                catalog.selection(
+                    policy_id=arguments.policy,
+                    estimate_id=arguments.estimate,
+                ),
+                indent=2,
+            )
+        )
+        return
     if arguments.command == "transform":
         staged = await asyncio.to_thread(
             build_clean_and_join,
