@@ -1,0 +1,199 @@
+import gzip
+import json
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from importlib.resources import files
+from pathlib import Path
+from typing import Any
+
+import duckdb
+
+from single_stair.transform.clean_and_join import latest_snapshot
+
+
+@dataclass(frozen=True, slots=True)
+class VisualizationExport:
+    output_directory: Path
+    candidate_count: int
+    neighborhood_count: int
+
+
+def _write_json(path: Path, payload: Any, *, compressed: bool = False) -> None:
+    serialized = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+    if compressed:
+        with gzip.open(path, "wt", encoding="utf-8", compresslevel=9) as output:
+            output.write(serialized)
+    else:
+        path.write_text(serialized + "\n", encoding="utf-8")
+
+
+def _candidate_query() -> str:
+    return """
+        SELECT objectid, pin, centroid_lon, centroid_lat,
+               community_area_name, canonical_zone_class, upzoned_zone_class,
+               transit_distance_ft, nearest_transit_agency,
+               is_city_owned, is_vacant, is_underbuilt,
+               requires_legal_or_site_review, review_reasons,
+               median_need_score, median_need_high_need_low_supply,
+               current_two_stair_three_bedroom_capacity,
+               current_single_stair_three_bedroom_capacity,
+               upzoned_single_stair_three_bedroom_capacity
+        FROM read_parquet(?, union_by_name=true)
+        WHERE has_any_modeled_capacity
+          AND (is_city_owned OR is_vacant OR is_underbuilt)
+          AND centroid_lon IS NOT NULL AND centroid_lat IS NOT NULL
+    """
+
+
+def _candidate_geojson(connection: duckdb.DuckDBPyConnection, source: Path) -> dict[str, Any]:
+    rows = connection.execute(_candidate_query(), [str(source / "part-*.parquet")]).fetchall()
+    features = []
+    for row in rows:
+        (
+            objectid,
+            pin,
+            longitude,
+            latitude,
+            community,
+            zoning,
+            upzoned_zoning,
+            transit_distance,
+            transit_agency,
+            city_owned,
+            vacant,
+            underbuilt,
+            requires_review,
+            review_reasons,
+            need_score,
+            high_need,
+            current_two_stair,
+            current_single_stair,
+            upzoned_single_stair,
+        ) = row
+        features.append(
+            {
+                "type": "Feature",
+                "id": objectid,
+                "geometry": {"type": "Point", "coordinates": [longitude, latitude]},
+                "properties": {
+                    "pin": pin,
+                    "community": community,
+                    "zoning": zoning,
+                    "upzoned_zoning": upzoned_zoning,
+                    "transit_distance_ft": transit_distance,
+                    "transit_agency": transit_agency,
+                    "city_owned": bool(city_owned),
+                    "vacant": bool(vacant),
+                    "underbuilt": bool(underbuilt),
+                    "requires_review": bool(requires_review),
+                    "review_reasons": review_reasons,
+                    "need_score": need_score,
+                    "high_need_low_supply": bool(high_need),
+                    "current_two_stair": current_two_stair,
+                    "current_single_stair": current_single_stair,
+                    "upzoned_single_stair": upzoned_single_stair,
+                },
+            }
+        )
+    return {"type": "FeatureCollection", "features": features}
+
+
+def _neighborhood_rows(connection: duckdb.DuckDBPyConnection, source: Path) -> list[dict[str, Any]]:
+    query = """
+        WITH tract_community_counts AS (
+            SELECT census_tract_geoid, community_area_number, community_area_name, count(*) parcels
+            FROM read_parquet(?, union_by_name=true)
+            WHERE census_tract_geoid IS NOT NULL AND community_area_name IS NOT NULL
+            GROUP BY ALL
+        ), tract_community AS (
+            SELECT * EXCLUDE(parcels)
+            FROM tract_community_counts
+            QUALIFY row_number() OVER (
+                PARTITION BY census_tract_geoid
+                ORDER BY parcels DESC, community_area_number
+            ) = 1
+        ), tract_metrics AS (
+            SELECT census_tract_geoid,
+                   max(family_housing_3_plus_gap_conservative_estimate) gap_conservative,
+                   max(family_housing_3_plus_gap_median_estimate) gap_median,
+                   max(family_housing_3_plus_gap_progressive_estimate) gap_progressive,
+                   max(median_need_score) need_score
+            FROM read_parquet(?, union_by_name=true)
+            WHERE census_tract_geoid IS NOT NULL
+            GROUP BY 1
+        )
+        SELECT community_area_number, community_area_name,
+               count(*) tract_count,
+               sum(gap_conservative) gap_conservative,
+               sum(gap_median) gap_median,
+               sum(gap_progressive) gap_progressive,
+               avg(need_score) mean_need_score
+        FROM tract_community JOIN tract_metrics USING (census_tract_geoid)
+        GROUP BY 1, 2
+        ORDER BY gap_median DESC NULLS LAST, community_area_number
+    """
+    pattern = str(source / "part-*.parquet")
+    frame = connection.execute(query, [pattern, pattern]).fetchdf()
+    return frame.where(frame.notna(), None).to_dict(orient="records")
+
+
+def _comparison_rows(connection: duckdb.DuckDBPyConnection, source: Path) -> list[dict[str, Any]]:
+    query = """
+        SELECT community_area_number, community_area_name, capacity_scenario_id,
+               modeled_capacity_units, incremental_capacity_vs_current_two_stair_units,
+               parcel_count, requires_legal_or_site_review_parcel_count
+        FROM read_parquet(?, union_by_name=true)
+        WHERE bedroom_category = 'three_bedroom'
+        ORDER BY community_area_number, capacity_scenario_id
+    """
+    frame = connection.execute(query, [str(source / "part-*.parquet")]).fetchdf()
+    return frame.where(frame.notna(), None).to_dict(orient="records")
+
+
+def export_visualization_data(
+    *,
+    final_root: Path = Path("data/final"),
+    output_directory: Path = Path("web/data"),
+    policy_id: str = "chicago_proposed",
+    estimate_id: str = "median",
+) -> VisualizationExport:
+    parcel_dataset = f"parcel_opportunity_with_need_{policy_id}_{estimate_id}"
+    community_dataset = f"opportunity_need_by_community_area_{policy_id}_{estimate_id}"
+    parcel_source = latest_snapshot(final_root, parcel_dataset)
+    community_source = latest_snapshot(final_root, community_dataset)
+    output_directory.mkdir(parents=True, exist_ok=True)
+    connection = duckdb.connect()
+    candidates = _candidate_geojson(connection, parcel_source)
+    neighborhoods = _neighborhood_rows(connection, parcel_source)
+    comparisons = _comparison_rows(connection, community_source)
+    scenario_config = json.loads(
+        files("single_stair").joinpath("config/building_scenarios.v1.json").read_text("utf-8")
+    )
+    _write_json(output_directory / "candidates.geojson.gz", candidates, compressed=True)
+    _write_json(output_directory / "neighborhoods.json", neighborhoods)
+    _write_json(output_directory / "comparisons.json", comparisons)
+    _write_json(
+        output_directory / "metadata.json",
+        {
+            "generated_at": datetime.now(UTC).isoformat(),
+            "policy_id": policy_id,
+            "estimate_id": estimate_id,
+            "candidate_definition": (
+                "Modeled parcel independently flagged vacant, underbuilt, or city-owned"
+            ),
+            "candidate_geometry": "parcel centroid",
+            "candidate_count": len(candidates["features"]),
+            "neighborhood_count": len(neighborhoods),
+            "source_snapshots": [str(parcel_source), str(community_source)],
+            "scenarios": scenario_config,
+            "limitations": [
+                "Capacity is analytical and is not a legal or architectural determination.",
+                "Candidate flags are independent screens, not a composite ranking.",
+                (
+                    "Neighborhood need assigns each tract to the community area containing "
+                    "the plurality of analyzed parcel centroids."
+                ),
+            ],
+        },
+    )
+    return VisualizationExport(output_directory, len(candidates["features"]), len(neighborhoods))

@@ -112,6 +112,15 @@ class CliTests(unittest.TestCase):
         self.assertEqual(arguments.policy, "illinois_sb4061")
         self.assertEqual(arguments.estimate, "progressive")
 
+    def test_parses_visualization_export(self) -> None:
+        arguments = _parser().parse_args(
+            ["visualize", "export", "--policy", "chicago_proposed", "--estimate", "median"]
+        )
+
+        self.assertEqual(arguments.command, "visualize")
+        self.assertEqual(arguments.visualization_command, "export")
+        self.assertEqual(arguments.policy, "chicago_proposed")
+
 
 if __name__ == "__main__":
     unittest.main()

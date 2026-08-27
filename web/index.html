@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chicago Single-Stair Research</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.7.3/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Chicago single-stair housing research</h1>
+        <p>Parcel capacity, family-sized rental need, and transparent scenario comparisons.</p>
+      </div>
+      <p id="status" role="status">Loading exported analysis…</p>
+    </header>
+
+    <main>
+      <section class="panel controls" aria-labelledby="filters-title">
+        <h2 id="filters-title">Map filters</h2>
+        <label>Scenario
+          <select id="scenario">
+            <option value="current_two_stair">Current zoning · two stair</option>
+            <option value="current_single_stair">Current zoning · single stair</option>
+            <option value="upzoned_single_stair" selected>Modest upzoning · single stair</option>
+          </select>
+        </label>
+        <label>Maximum transit distance
+          <select id="transit-distance">
+            <option value="2640">0.5 mile</option>
+            <option value="5280">1 mile</option>
+            <option value="999999" selected>Any distance</option>
+          </select>
+        </label>
+        <label>Zoning
+          <select id="zoning"><option value="all">All supported classes</option></select>
+        </label>
+        <label>Ownership
+          <select id="ownership">
+            <option value="all">All ownership</option>
+            <option value="city">City-owned only</option>
+            <option value="private">Not city-owned</option>
+          </select>
+        </label>
+        <label class="check"><input id="vacant" type="checkbox" /> Vacant flag</label>
+        <label class="check"><input id="underbuilt" type="checkbox" /> Underbuilt flag</label>
+        <label class="check"><input id="high-need" type="checkbox" /> High need / low supply</label>
+        <p id="map-count" class="metric"></p>
+      </section>
+
+      <section class="map-panel" aria-label="Candidate parcel map">
+        <div id="map"></div>
+        <div id="map-message" class="map-message" hidden></div>
+      </section>
+
+      <aside class="panel details" aria-labelledby="details-title">
+        <h2 id="details-title">Parcel details</h2>
+        <div id="parcel-details"><p>Select a point on the map.</p></div>
+      </aside>
+
+      <section class="panel wide" aria-labelledby="need-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="need-title">Family-sized rental housing gap</h2>
+            <p>3+ bedroom estimate by community area; top 15 shown.</p>
+          </div>
+          <label>Estimate
+            <select id="need-estimate">
+              <option value="conservative">Conservative</option>
+              <option value="median" selected>Median</option>
+              <option value="progressive">Progressive</option>
+            </select>
+          </label>
+        </div>
+        <div id="need-chart" class="chart"></div>
+      </section>
+
+      <section class="panel wide" aria-labelledby="comparison-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="comparison-title">Current zoning and modeled capacity</h2>
+            <p>3-bedroom archetype capacity; this is not a forecast of actual construction.</p>
+          </div>
+          <label>Community area
+            <select id="comparison-community"></select>
+          </label>
+        </div>
+        <div id="comparison-chart" class="comparison"></div>
+      </section>
+
+      <section class="panel simulator" aria-labelledby="simulator-title">
+        <h2 id="simulator-title">Lot feasibility simulator</h2>
+        <p>Simple capacity arithmetic using the versioned policy and estimate assumptions.</p>
+        <div class="sim-inputs">
+          <label>Lot width (ft)<input id="lot-width" type="number" min="10" value="25" /></label>
+          <label>Lot depth (ft)<input id="lot-depth" type="number" min="20" value="125" /></label>
+          <label>Maximum FAR<input id="lot-far" type="number" min="0" step="0.1" value="2.2" /></label>
+          <label>Bedrooms
+            <select id="bedrooms">
+              <option value="studio">Studio</option><option value="one_bedroom">1</option>
+              <option value="two_bedroom">2</option><option value="three_bedroom" selected>3</option>
+              <option value="four_bedroom">4</option><option value="five_plus_bedroom">5+</option>
+            </select>
+          </label>
+          <label>Estimate profile
+            <select id="estimate-profile">
+              <option value="conservative">Conservative</option>
+              <option value="median" selected>Median</option>
+              <option value="progressive">Progressive</option>
+            </select>
+          </label>
+          <label>Policy
+            <select id="policy-profile">
+              <option value="chicago_proposed" selected>Chicago proposed</option>
+              <option value="illinois_sb4061">Illinois alternative</option>
+            </select>
+          </label>
+        </div>
+        <div id="simulator-results" class="sim-results"></div>
+      </section>
+
+      <section class="panel methodology" aria-labelledby="method-title">
+        <h2 id="method-title">Assumptions and limitations</h2>
+        <div id="methodology"></div>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/maplibre-gl@5.7.3/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
