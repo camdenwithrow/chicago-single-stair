@@ -4,6 +4,7 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from single_stair.ingest.bls_cpi import DEFAULT_START_YEAR, ingest_chicago_cpi
 from single_stair.ingest.census import DEFAULT_ACS_YEAR, ingest_census_housing
 from single_stair.ingest.chicago_boundaries import ingest_chicago_boundaries
 from single_stair.ingest.chicago_city_land import ingest_chicago_city_owned_land
@@ -24,6 +25,7 @@ from single_stair.transform.clean_and_join import build_clean_and_join
 from single_stair.transform.combine_opportunity_need import build_combined_opportunity_need
 from single_stair.transform.family_housing_need import build_family_housing_need
 from single_stair.transform.parcel_opportunity import build_parcel_opportunity
+from single_stair.transform.permit_baseline import build_permit_baseline
 
 
 def _report_parcel_progress(batch: ParcelBatch, feature_count: int) -> None:
@@ -94,6 +96,9 @@ def _parser() -> argparse.ArgumentParser:
         default=DEFAULT_ACS_YEAR,
         help=f"ACS 5-year vintage (default: {DEFAULT_ACS_YEAR})",
     )
+    cpi = sources.add_parser("bls-chicago-cpi", help="Ingest the Chicago-area CPI")
+    cpi.add_argument("--start-year", type=int, default=DEFAULT_START_YEAR)
+    cpi.add_argument("--end-year", type=int)
     transform = commands.add_parser("transform", help="Build an analysis-ready staged dataset")
     transformations = transform.add_subparsers(dest="transformation", required=True)
     transformations.add_parser(
@@ -109,6 +114,10 @@ def _parser() -> argparse.ArgumentParser:
     transformations.add_parser(
         "family-housing-need",
         help="Calculate tract-level family housing need and uncertainty",
+    )
+    transformations.add_parser(
+        "permit-baseline",
+        help="Parse and summarize small-multifamily permits",
     )
     combined = transformations.add_parser(
         "combine-opportunity-need",
@@ -150,6 +159,8 @@ async def _run(arguments: argparse.Namespace) -> None:
         )
     elif arguments.command == "transform" and arguments.transformation == "family-housing-need":
         snapshot_path = await asyncio.to_thread(build_family_housing_need)
+    elif arguments.command == "transform" and arguments.transformation == "permit-baseline":
+        snapshot_path = await asyncio.to_thread(build_permit_baseline)
     elif (
         arguments.command == "transform" and arguments.transformation == "combine-opportunity-need"
     ):
@@ -185,6 +196,11 @@ async def _run(arguments: argparse.Namespace) -> None:
     elif arguments.source == "transit-stations":
         snapshots = await ingest_transit_stations(progress=_report_station_progress)
         snapshot_path = tuple(snapshot.path for snapshot in snapshots)
+    elif arguments.source == "bls-chicago-cpi":
+        snapshot_path = await ingest_chicago_cpi(
+            start_year=arguments.start_year,
+            end_year=arguments.end_year,
+        )
     else:
         census = await ingest_census_housing(year=arguments.year)
         snapshot_path = census.paths

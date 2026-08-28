@@ -1,0 +1,21 @@
+{
+  "config_version": "1.0.0",
+  "baseline_start_year": 2015,
+  "last_complete_year": 2025,
+  "reference_dollar_year": 2025,
+  "small_multifamily_min_units": 2,
+  "small_multifamily_max_units": 20,
+  "size_bands": [[2, 2], [3, 4], [5, 8], [9, 12], [13, 20]],
+  "sources": {
+    "permits": "https://data.cityofchicago.org/Buildings/Building-Permits/ydr8-5enu",
+    "permit_change_notice_may_2024": "https://data.cityofchicago.org/stories/s/Change-Notice-Building-Permits-5-1-2024/2mfe-wq8d/",
+    "permit_change_notice_september_2024": "https://data.cityofchicago.org/stories/s/Change-Notice-Building-Permits-9-13-2024/xrh5-hrqf/",
+    "cpi": "https://data.bls.gov/timeseries/CUURS23ASA0"
+  },
+  "notes": [
+    "Counts represent permits issued, not completed homes.",
+    "Text-derived stories and dwelling-unit counts are estimates and retain parser confidence.",
+    "New construction and unit-adding alterations remain separately identifiable.",
+    "Permit-system eras are retained because Chicago changed fields and categories during 2024."
+  ]
+}

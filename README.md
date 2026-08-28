@@ -27,6 +27,7 @@ uv run single-stair ingest chicago-building-permits
 uv run single-stair ingest chicago-city-land
 uv run single-stair ingest transit-stations
 uv run single-stair ingest census-housing --year 2024
+uv run single-stair ingest bls-chicago-cpi
 ```
 
 Omit `--tax-year` to use the latest year exposed by the Assessor dataset. The latest tax year may
@@ -58,6 +59,8 @@ The ingestion sources and raw data contracts are:
   `B25042` (bedrooms by tenure), `B25014` (occupants per room), and `B25070` (rent burden). A
   separate Cook County full-resolution TIGER/Line tract-geometry snapshot retains the native
   Census boundary CRS and includes water-only tract 9900 so its keys align with the ACS tables.
+- Chicago-area CPI: one monthly observation per year and period from BLS series `CUURS23ASA0`,
+  used to express permit costs in constant 2025 dollars. No API key is required.
 
 Socrata tables use keyset pagination against a fixed upper key and validate the final count. GTFS
 and Census boundary manifests include the downloaded archive's SHA-256 checksum. API credentials
@@ -200,3 +203,30 @@ single-stair capacity for studio through five-plus-bedroom archetypes. Transit b
 filtering only and must not be summed; neighborhood need totals remain at their authoritative tract
 grain in `family_housing_need`. The versioned combined-analysis configuration records this contract
 and its limitations.
+
+## Permit baseline
+
+After ingesting permits, community-area boundaries, and Chicago-area CPI, build the baseline with:
+
+```bash
+uv run single-stair transform permit-baseline
+```
+
+The record-level output has one row per issued permit from 2015 onward. Rules parse stories,
+existing and proposed dwelling units, and net added units from the public work description while
+retaining confidence and review-reason fields. The 2–20-unit headline includes both new
+construction and unit-adding alterations, and keeps those production types separate. It does not
+count ordinary work merely because a description says it affects dwelling units.
+
+Separate final datasets summarize permit count, net units, nominal and 2025-dollar reported cost,
+and review time by year/size, community area, and review type. Completed years are 2015–2025;
+2026 is retained as partial. A permit-system-era dimension identifies the 2024 source transition.
+Review time is recalculated from application start to issue date, with negative durations excluded
+and agreement with the published processing field retained for auditing.
+
+The classification was manually checked against a deterministic, stratified 100-permit sample in
+`src/single_stair/config/permit_validation.v1.csv`; validation metrics are materialized in
+`permit_baseline_validation`. Counts describe permits issued, not construction completions, and
+reported costs are applicant values rather than independently verified project costs. Parser
+assumptions, official sources, and limitations are versioned in
+`src/single_stair/config/permit_baseline.v1.json`.

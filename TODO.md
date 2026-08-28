@@ -48,11 +48,11 @@
 - [x] Aggregate results by community area, ward, zoning class, and transit band.
 - [x] Compare current zoning, single-stair, and upzoning scenarios.
 8. Create the permit baseline
-- [ ] Parse stories and dwelling units from permit descriptions.
-- [ ] Identify recent small multifamily permits.
-- [ ] Validate a sample manually.
-- [ ] Aggregate permits by year, neighborhood, size, cost, and review time.
-- [ ] Save these metrics for future before-and-after comparisons.
+- [x] Parse stories and dwelling units from permit descriptions.
+- [x] Identify recent small multifamily permits.
+- [x] Validate a sample manually.
+- [x] Aggregate permits by year, neighborhood, size, cost, and review time.
+- [x] Save these metrics for future before-and-after comparisons.
 9. Build the visualization
 ** Keep the ui as simple as possible, do not embellish with over-styling, should
 be purely utilitarian, presenting the information. Use protomaps api for map tiles**
