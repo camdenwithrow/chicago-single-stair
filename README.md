@@ -230,3 +230,29 @@ The classification was manually checked against a deterministic, stratified 100-
 reported costs are applicant values rather than independently verified project costs. Parser
 assumptions, official sources, and limitations are versioned in
 `src/single_stair/config/permit_baseline.v1.json`.
+
+## Visualization
+
+Export browser-ready data from the latest analytical snapshots and serve the static app locally:
+
+```bash
+uv run single-stair visualize export
+python3 -m http.server 8000 --directory web
+```
+
+Then open `http://localhost:8000`. Generated files under `web/data/` are excluded from Git. The
+candidate GeoJSON contains centroids for every modeled parcel independently flagged vacant,
+underbuilt, or city-owned; it is gzip-compressed to approximately 4 MB for browser delivery. This
+is a transparent research universe rather than a ranked recommendation list.
+
+The dashboard includes scenario, transit-distance, zoning, ownership, vacancy, underbuilt, and
+family-need filters; neighborhood 3+ bedroom gap bars; community-area capacity comparisons; parcel
+details; and an assumption-driven lot simulator. The simulator defaults to a 25-by-125-foot lot;
+change the width to 50 feet for the second documented archetype.
+
+Set `protomapsApiKey` in `web/config.js` to use the hosted Protomaps v5 light style. Browser map
+keys are visible to users, so restrict the key to the deployed domains in the Protomaps account.
+Alternatively set `protomapsUrl` to a self-hosted PMTiles archive or compatible ZXY vector endpoint.
+Without either value, the analytical points still render over a blank context layer and the UI
+shows a configuration notice. See the official [Protomaps hosted API](https://protomaps.com/api)
+and [MapLibre integration](https://docs.protomaps.com/pmtiles/maplibre) documentation.

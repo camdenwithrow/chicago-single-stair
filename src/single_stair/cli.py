@@ -26,6 +26,7 @@ from single_stair.transform.combine_opportunity_need import build_combined_oppor
 from single_stair.transform.family_housing_need import build_family_housing_need
 from single_stair.transform.parcel_opportunity import build_parcel_opportunity
 from single_stair.transform.permit_baseline import build_permit_baseline
+from single_stair.visualization import export_visualization_data
 
 
 def _report_parcel_progress(batch: ParcelBatch, feature_count: int) -> None:
@@ -134,10 +135,28 @@ def _parser() -> argparse.ArgumentParser:
         help="Estimate profile ID; defaults to median",
     )
     show.add_argument("--config", type=Path, help="Optional scenario configuration file")
+    visualize = commands.add_parser("visualize", help="Prepare the static research dashboard")
+    visualization_commands = visualize.add_subparsers(dest="visualization_command", required=True)
+    export = visualization_commands.add_parser("export", help="Export browser-ready data")
+    export.add_argument("--policy", default="chicago_proposed")
+    export.add_argument("--estimate", default="median")
+    export.add_argument("--output", type=Path, default=Path("web/data"))
     return parser
 
 
 async def _run(arguments: argparse.Namespace) -> None:
+    if arguments.command == "visualize":
+        exported = await asyncio.to_thread(
+            export_visualization_data,
+            output_directory=arguments.output,
+            policy_id=arguments.policy,
+            estimate_id=arguments.estimate,
+        )
+        print(
+            f"Exported {exported.candidate_count:,} candidates and "
+            f"{exported.neighborhood_count:,} neighborhoods to {exported.output_directory}"
+        )
+        return
     if arguments.command == "scenarios":
         catalog = load_scenario_catalog(arguments.config)
         print(

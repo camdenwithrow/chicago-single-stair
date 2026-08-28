@@ -56,12 +56,12 @@
 9. Build the visualization
 ** Keep the ui as simple as possible, do not embellish with over-styling, should
 be purely utilitarian, presenting the information. Use protomaps api for map tiles**
-- [ ] Create an interactive candidate-parcel map.
-- [ ] Add filters for scenario, transit distance, zoning, and ownership.
-- [ ] Add neighborhood family-housing-gap charts.
-- [ ] Add current-zoning versus upzoning comparisons.
-- [ ] Add a simple 25-foot/50-foot lot feasibility simulator.
-- [ ] Display assumptions and data limitations clearly.
+- [x] Create an interactive candidate-parcel map.
+- [x] Add filters for scenario, transit distance, zoning, and ownership.
+- [x] Add neighborhood family-housing-gap charts.
+- [x] Add current-zoning versus upzoning comparisons.
+- [x] Add a simple 25-foot/50-foot lot feasibility simulator.
+- [x] Display assumptions and data limitations clearly.
 10. Publish the portfolio project
 - [ ] Write a short methodology report.
 - [ ] Publish five to ten defensible findings.
