@@ -153,7 +153,8 @@ async def _run(arguments: argparse.Namespace) -> None:
             estimate_id=arguments.estimate,
         )
         print(
-            f"Exported {exported.candidate_count:,} candidates and "
+            f"Exported {exported.candidate_count:,} candidates, "
+            f"{exported.ward_count:,} wards, and "
             f"{exported.neighborhood_count:,} neighborhoods to {exported.output_directory}"
         )
         return

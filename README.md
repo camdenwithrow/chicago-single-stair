@@ -245,10 +245,13 @@ candidate GeoJSON contains centroids for every modeled parcel independently flag
 underbuilt, or city-owned; it is gzip-compressed to approximately 4 MB for browser delivery. This
 is a transparent research universe rather than a ranked recommendation list.
 
-The dashboard includes scenario, transit-distance, zoning, ownership, vacancy, underbuilt, and
-family-need filters; neighborhood 3+ bedroom gap bars; community-area capacity comparisons; parcel
-details; and an assumption-driven lot simulator. The simulator defaults to a 25-by-125-foot lot;
-change the width to 50 feet for the second documented archetype.
+The map defaults to an official ward-boundary overview of additional modeled 3-bedroom capacity
+under current zoning with single-stair construction, compared with the current two-stair baseline.
+Switch to parcel detail for the existing scenario, transit-distance, zoning, ownership, vacancy,
+underbuilt, and family-need filters. The dashboard also includes neighborhood 3+ bedroom gap bars,
+community-area capacity comparisons, map details, and an assumption-driven lot simulator. The
+simulator defaults to a 25-by-125-foot lot; change the width to 50 feet for the second documented
+archetype.
 
 Set `protomapsApiKey` in `web/config.js` to use the hosted Protomaps v5 light style. Browser map
 keys are visible to users, so restrict the key to the deployed domains in the Protomaps account.

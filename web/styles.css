@@ -41,6 +41,12 @@ select, input[type="number"] {
   position: absolute; left: 1rem; bottom: 1rem; max-width: 28rem; padding: .6rem;
   background: rgba(255,255,255,.94); border: 1px solid #999; font-size: .8rem;
 }
+.map-legend {
+  position: absolute; right: 1rem; bottom: 1rem; padding: .5rem;
+  background: rgba(255,255,255,.94); border: 1px solid #999; font-size: .78rem;
+}
+.legend-ramp { width: 9rem; height: .65rem; margin: .25rem 0; background: linear-gradient(90deg, #f3f1eb, #9ecae1, #08519c); }
+.parcel-filter.is-disabled { opacity: .45; }
 .details dl { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
 .details dt { color: #666; }
 .details dd { margin: 0; text-align: right; overflow-wrap: anywhere; }

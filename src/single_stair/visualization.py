@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 import duckdb
+import geopandas as gpd
+import pandas as pd
 
 from single_stair.transform.clean_and_join import latest_snapshot
 
@@ -16,6 +18,7 @@ class VisualizationExport:
     output_directory: Path
     candidate_count: int
     neighborhood_count: int
+    ward_count: int
 
 
 def _write_json(path: Path, payload: Any, *, compressed: bool = False) -> None:
@@ -150,8 +153,44 @@ def _comparison_rows(connection: duckdb.DuckDBPyConnection, source: Path) -> lis
     return frame.where(frame.notna(), None).to_dict(orient="records")
 
 
+def _ward_geojson(boundary_source: Path, summary_source: Path) -> dict[str, Any]:
+    boundary_parts = sorted(boundary_source.glob("part-*.parquet"))
+    if not boundary_parts:
+        raise FileNotFoundError(f"Ward boundary snapshot has no Parquet parts: {boundary_source}")
+    boundary_frames = [gpd.read_parquet(part) for part in boundary_parts]
+    boundaries = gpd.GeoDataFrame(
+        pd.concat(boundary_frames, ignore_index=True),
+        geometry="geometry",
+        crs=boundary_frames[0].crs,
+    ).to_crs("EPSG:4326")
+    boundaries["ward"] = boundaries["ward"].astype("string")
+
+    connection = duckdb.connect()
+    query = """
+        SELECT ward, capacity_scenario_id,
+               modeled_capacity_units,
+               incremental_capacity_vs_current_two_stair_units,
+               capacity_gain_parcel_count,
+               requires_legal_or_site_review_parcel_count
+        FROM read_parquet(?, union_by_name=true)
+        WHERE bedroom_category = 'three_bedroom'
+    """
+    summary = connection.execute(query, [str(summary_source / "part-*.parquet")]).fetchdf()
+    summary["ward"] = summary["ward"].astype("string")
+    metrics = summary.pivot(index="ward", columns="capacity_scenario_id").reset_index()
+    metrics.columns = [
+        "ward" if column == ("ward", "") else f"{column[1]}_{column[0]}"
+        for column in metrics.columns
+    ]
+    wards = boundaries[["ward", "geometry"]].merge(
+        metrics, on="ward", how="left", validate="one_to_one"
+    )
+    return json.loads(wards.to_json(drop_id=True))
+
+
 def export_visualization_data(
     *,
+    raw_root: Path = Path("data/raw"),
     final_root: Path = Path("data/final"),
     output_directory: Path = Path("web/data"),
     policy_id: str = "chicago_proposed",
@@ -159,19 +198,24 @@ def export_visualization_data(
 ) -> VisualizationExport:
     parcel_dataset = f"parcel_opportunity_with_need_{policy_id}_{estimate_id}"
     community_dataset = f"opportunity_need_by_community_area_{policy_id}_{estimate_id}"
+    ward_dataset = f"opportunity_need_by_ward_{policy_id}_{estimate_id}"
     parcel_source = latest_snapshot(final_root, parcel_dataset)
     community_source = latest_snapshot(final_root, community_dataset)
+    ward_source = latest_snapshot(final_root, ward_dataset)
+    ward_boundary_source = latest_snapshot(raw_root, "chicago_ward_boundaries")
     output_directory.mkdir(parents=True, exist_ok=True)
     connection = duckdb.connect()
     candidates = _candidate_geojson(connection, parcel_source)
     neighborhoods = _neighborhood_rows(connection, parcel_source)
     comparisons = _comparison_rows(connection, community_source)
+    wards = _ward_geojson(ward_boundary_source, ward_source)
     scenario_config = json.loads(
         files("single_stair").joinpath("config/building_scenarios.v1.json").read_text("utf-8")
     )
     _write_json(output_directory / "candidates.geojson.gz", candidates, compressed=True)
     _write_json(output_directory / "neighborhoods.json", neighborhoods)
     _write_json(output_directory / "comparisons.json", comparisons)
+    _write_json(output_directory / "wards.geojson", wards)
     _write_json(
         output_directory / "metadata.json",
         {
@@ -184,7 +228,13 @@ def export_visualization_data(
             "candidate_geometry": "parcel centroid",
             "candidate_count": len(candidates["features"]),
             "neighborhood_count": len(neighborhoods),
-            "source_snapshots": [str(parcel_source), str(community_source)],
+            "ward_count": len(wards["features"]),
+            "source_snapshots": [
+                str(parcel_source),
+                str(community_source),
+                str(ward_source),
+                str(ward_boundary_source),
+            ],
             "scenarios": scenario_config,
             "limitations": [
                 "Capacity is analytical and is not a legal or architectural determination.",
@@ -196,4 +246,9 @@ def export_visualization_data(
             ],
         },
     )
-    return VisualizationExport(output_directory, len(candidates["features"]), len(neighborhoods))
+    return VisualizationExport(
+        output_directory,
+        len(candidates["features"]),
+        len(neighborhoods),
+        len(wards["features"]),
+    )
