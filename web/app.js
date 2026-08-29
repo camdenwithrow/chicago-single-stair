@@ -1,7 +1,7 @@
 /* global maplibregl, pmtiles */
 "use strict";
 
-const state = { candidates: null, wards: null, neighborhoods: [], comparisons: [], metadata: null, map: null };
+const state = { candidates: null, wards: null, communityAreas: null, neighborhoods: [], comparisons: [], metadata: null, map: null };
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
@@ -37,36 +37,45 @@ function basemapStyle() {
 
 function scenarioField() { return $("scenario").value; }
 
-function wardCapacityField() { return `${scenarioField()}_modeled_capacity_units`; }
-function wardGainField() { return `${scenarioField()}_incremental_capacity_vs_current_two_stair_units`; }
+function areaCapacityField() { return `${scenarioField()}_modeled_capacity_units`; }
+function areaGainField() { return `${scenarioField()}_incremental_capacity_vs_current_two_stair_units`; }
 
-function updateWardStyle() {
-  if (!state.map?.getLayer("ward-fill")) return;
-  const field = wardGainField();
-  const values = state.wards.features.map((feature) => Number(feature.properties[field]) || 0);
+function overviewConfig() {
+  return $("map-view").value === "community"
+    ? { data: state.communityAreas, fillLayer: "community-fill", label: "community area" }
+    : { data: state.wards, fillLayer: "ward-fill", label: "ward" };
+}
+
+function updateOverviewStyle() {
+  const overview = overviewConfig();
+  if (!state.map?.getLayer(overview.fillLayer)) return;
+  const field = areaGainField();
+  const values = overview.data.features.map((feature) => Number(feature.properties[field]) || 0);
   const maximum = Math.max(...values, 1);
-  state.map.setPaintProperty("ward-fill", "fill-color", [
+  state.map.setPaintProperty(overview.fillLayer, "fill-color", [
     "case", ["==", ["get", field], null], "#bdbdbd",
     ["interpolate", ["linear"], ["get", field],
       0, "#f3f1eb", maximum * 0.25, "#c6dbef", maximum * 0.6, "#6baed6", maximum, "#08519c"]
   ]);
   const total = values.reduce((sum, value) => sum + value, 0);
   $("map-count").textContent = `${number.format(total)} additional modeled 3-bedroom units citywide`;
-  $("map-legend").innerHTML = `<strong>Additional 3-bedroom capacity</strong><div class="legend-ramp"></div><span>0</span><span style="float:right">${number.format(maximum)}</span><div>Gray: not modeled</div>`;
+  $("map-legend").innerHTML = `<strong>Additional 3-bedroom capacity by ${overview.label}</strong><div class="legend-ramp"></div><span>0</span><span style="float:right">${number.format(maximum)}</span><div>Gray: not modeled</div>`;
 }
 
 function updateMapView() {
   if (!state.map?.getLayer("ward-fill")) return;
-  const wardView = $("map-view").value === "ward";
-  for (const layer of ["ward-fill", "ward-outline"]) state.map.setLayoutProperty(layer, "visibility", wardView ? "visible" : "none");
-  for (const layer of ["candidate-clusters", "candidate-points"]) state.map.setLayoutProperty(layer, "visibility", wardView ? "none" : "visible");
+  const mapView = $("map-view").value;
+  const overviewView = mapView !== "parcel";
+  for (const layer of ["ward-fill", "ward-outline"]) state.map.setLayoutProperty(layer, "visibility", mapView === "ward" ? "visible" : "none");
+  for (const layer of ["community-fill", "community-outline"]) state.map.setLayoutProperty(layer, "visibility", mapView === "community" ? "visible" : "none");
+  for (const layer of ["candidate-clusters", "candidate-points"]) state.map.setLayoutProperty(layer, "visibility", overviewView ? "none" : "visible");
   for (const label of document.querySelectorAll(".parcel-filter")) {
-    label.classList.toggle("is-disabled", wardView);
-    for (const control of label.querySelectorAll("select,input")) control.disabled = wardView;
+    label.classList.toggle("is-disabled", overviewView);
+    for (const control of label.querySelectorAll("select,input")) control.disabled = overviewView;
   }
-  $("map-legend").hidden = !wardView;
-  if (wardView) {
-    updateWardStyle();
+  $("map-legend").hidden = !overviewView;
+  if (overviewView) {
+    updateOverviewStyle();
     state.map.fitBounds([[-87.95, 41.63], [-87.50, 42.03]], { padding: 24, duration: 0 });
   } else {
     applyFilters();
@@ -87,8 +96,8 @@ function featureMatches(feature) {
 }
 
 function applyFilters() {
-  if ($("map-view").value === "ward") {
-    updateWardStyle();
+  if ($("map-view").value !== "parcel") {
+    updateOverviewStyle();
     return;
   }
   const features = state.candidates.features.filter(featureMatches);
@@ -111,16 +120,19 @@ function parcelDetails(properties) {
   $("parcel-details").innerHTML = `<dl>${rows.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`).join("")}</dl><p><small>Capacities use the 3-bedroom archetype. A map point is a parcel centroid.</small></p>`;
 }
 
-function wardDetails(properties) {
+function areaDetails(properties, geography) {
   const scenarioNames = {
     current_two_stair: "Current zoning · two stair",
     current_single_stair: "Current zoning · single stair",
     upzoned_single_stair: "Modest upzoning · single stair"
   };
-  const capacity = properties[wardCapacityField()];
-  const gain = properties[wardGainField()];
+  const isWard = geography === "ward";
+  const geographyLabel = isWard ? "Ward" : "Community area";
+  const geographyValue = isWard ? properties.ward : properties.community_area_name;
+  const capacity = properties[areaCapacityField()];
+  const gain = properties[areaGainField()];
   const displayMetric = (value) => value == null ? "Not modeled" : number.format(value);
-  $("parcel-details").innerHTML = `<dl><dt>Ward</dt><dd>${escapeHtml(properties.ward)}</dd><dt>Scenario</dt><dd>${escapeHtml(scenarioNames[scenarioField()])}</dd><dt>Modeled 3-bedroom capacity</dt><dd>${displayMetric(capacity)}</dd><dt>Additional vs. current two stair</dt><dd>${displayMetric(gain)}</dd></dl><p><small>Ward totals aggregate parcel-level analytical capacity. Select “Parcel detail” to inspect individual sites.</small></p>`;
+  $("parcel-details").innerHTML = `<dl><dt>${geographyLabel}</dt><dd>${escapeHtml(geographyValue)}</dd><dt>Scenario</dt><dd>${escapeHtml(scenarioNames[scenarioField()])}</dd><dt>Modeled 3-bedroom capacity</dt><dd>${displayMetric(capacity)}</dd><dt>Additional vs. current two stair</dt><dd>${displayMetric(gain)}</dd></dl><p><small>${geographyLabel} totals aggregate parcel-level analytical capacity. Select “Parcel detail” to inspect individual sites.</small></p>`;
 }
 
 function initializeMap() {
@@ -130,6 +142,9 @@ function initializeMap() {
     state.map.addSource("wards", { type: "geojson", data: state.wards });
     state.map.addLayer({ id: "ward-fill", type: "fill", source: "wards", paint: { "fill-color": "#c6dbef", "fill-opacity": 0.72 } });
     state.map.addLayer({ id: "ward-outline", type: "line", source: "wards", paint: { "line-color": "#444", "line-width": 1 } });
+    state.map.addSource("community-areas", { type: "geojson", data: state.communityAreas });
+    state.map.addLayer({ id: "community-fill", type: "fill", source: "community-areas", paint: { "fill-color": "#c6dbef", "fill-opacity": 0.72 } });
+    state.map.addLayer({ id: "community-outline", type: "line", source: "community-areas", paint: { "line-color": "#444", "line-width": 1 } });
     state.map.addSource("candidates", { type: "geojson", data: { type: "FeatureCollection", features: [] }, cluster: true, clusterRadius: 35, clusterMaxZoom: 13 });
     state.map.addLayer({ id: "candidate-clusters", type: "circle", source: "candidates", filter: ["has", "point_count"], paint: { "circle-color": "#365f91", "circle-opacity": 0.75, "circle-radius": ["step", ["get", "point_count"], 9, 100, 14, 1000, 19] } });
     state.map.addLayer({ id: "candidate-points", type: "circle", source: "candidates", filter: ["!", ["has", "point_count"]], paint: { "circle-color": ["case", ["get", "city_owned"], "#7b3294", ["get", "vacant"], "#d95f0e", "#365f91"], "circle-opacity": 0.7, "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 2, 15, 6], "circle-stroke-color": "#fff", "circle-stroke-width": 0.5 } });
@@ -139,16 +154,19 @@ function initializeMap() {
       state.map.easeTo({ center: feature.geometry.coordinates, zoom });
     });
     state.map.on("click", "candidate-points", (event) => parcelDetails(event.features[0].properties));
-    state.map.on("click", "ward-fill", (event) => wardDetails(event.features[0].properties));
+    state.map.on("click", "ward-fill", (event) => areaDetails(event.features[0].properties, "ward"));
+    state.map.on("click", "community-fill", (event) => areaDetails(event.features[0].properties, "community"));
     state.map.on("mouseenter", "ward-fill", () => { state.map.getCanvas().style.cursor = "pointer"; });
     state.map.on("mouseleave", "ward-fill", () => { state.map.getCanvas().style.cursor = ""; });
+    state.map.on("mouseenter", "community-fill", () => { state.map.getCanvas().style.cursor = "pointer"; });
+    state.map.on("mouseleave", "community-fill", () => { state.map.getCanvas().style.cursor = ""; });
     state.map.on("mouseenter", "candidate-points", () => { state.map.getCanvas().style.cursor = "pointer"; });
     state.map.on("mouseleave", "candidate-points", () => { state.map.getCanvas().style.cursor = ""; });
     updateMapView();
   });
   if (!window.SINGLE_STAIR_CONFIG?.protomapsUrl && !window.SINGLE_STAIR_CONFIG?.protomapsApiKey) {
     $("map-message").hidden = false;
-    $("map-message").textContent = "Ward and parcel data are shown without a basemap. Add a domain-restricted Protomaps API key or self-hosted tile URL in config.js.";
+    $("map-message").textContent = "Ward, community-area, and parcel data are shown without a basemap. Add a domain-restricted Protomaps API key or self-hosted tile URL in config.js.";
   }
 }
 
@@ -199,8 +217,8 @@ function renderMethodology() {
 
 async function main() {
   try {
-    [state.candidates, state.wards, state.neighborhoods, state.comparisons, state.metadata] = await Promise.all([
-      fetchGzipJson("data/candidates.geojson.gz"), fetch("data/wards.geojson").then((r) => r.json()), fetch("data/neighborhoods.json").then((r) => r.json()),
+    [state.candidates, state.wards, state.communityAreas, state.neighborhoods, state.comparisons, state.metadata] = await Promise.all([
+      fetchGzipJson("data/candidates.geojson.gz"), fetch("data/wards.geojson").then((r) => r.json()), fetch("data/community_areas.geojson").then((r) => r.json()), fetch("data/neighborhoods.json").then((r) => r.json()),
       fetch("data/comparisons.json").then((r) => r.json()), fetch("data/metadata.json").then((r) => r.json())
     ]);
     populateControls(); initializeMap(); renderNeedChart(); renderComparison(); renderSimulator(); renderMethodology();
