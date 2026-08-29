@@ -155,7 +155,8 @@ async def _run(arguments: argparse.Namespace) -> None:
         print(
             f"Exported {exported.candidate_count:,} candidates, "
             f"{exported.ward_count:,} wards, and "
-            f"{exported.neighborhood_count:,} neighborhoods to {exported.output_directory}"
+            f"{exported.community_area_count:,} community areas to "
+            f"{exported.output_directory}"
         )
         return
     if arguments.command == "scenarios":

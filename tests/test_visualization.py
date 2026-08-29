@@ -7,7 +7,11 @@ import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Polygon
 
-from single_stair.visualization import _candidate_query, _ward_geojson
+from single_stair.visualization import (
+    _candidate_query,
+    _community_area_geojson,
+    _ward_geojson,
+)
 
 
 class VisualizationExportTests(unittest.TestCase):
@@ -78,6 +82,40 @@ class VisualizationExportTests(unittest.TestCase):
             ward_without_summary[
                 "current_single_stair_incremental_capacity_vs_current_two_stair_units"
             ]
+        )
+
+    def test_community_area_export_uses_official_names_and_boundaries(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            boundary_source = root / "boundaries"
+            summary_source = root / "summary"
+            boundary_source.mkdir()
+            summary_source.mkdir()
+            gpd.GeoDataFrame(
+                {"area_numbe": ["22"], "community": ["LOGAN SQUARE"]},
+                geometry=[Polygon([(-88, 41), (-87, 41), (-87, 42), (-88, 42)])],
+                crs="EPSG:4326",
+            ).to_parquet(boundary_source / "part-00001.parquet")
+            pd.DataFrame(
+                {
+                    "community_area_number": ["22"],
+                    "capacity_scenario_id": ["current_single_stair"],
+                    "bedroom_category": ["three_bedroom"],
+                    "modeled_capacity_units": [125],
+                    "incremental_capacity_vs_current_two_stair_units": [25],
+                    "capacity_gain_parcel_count": [8],
+                    "requires_legal_or_site_review_parcel_count": [20],
+                }
+            ).to_parquet(summary_source / "part-00001.parquet")
+
+            community_areas = _community_area_geojson(boundary_source, summary_source)
+
+        properties = community_areas["features"][0]["properties"]
+        self.assertEqual(properties["community_area_number"], "22")
+        self.assertEqual(properties["community_area_name"], "LOGAN SQUARE")
+        self.assertEqual(
+            properties["current_single_stair_incremental_capacity_vs_current_two_stair_units"],
+            25,
         )
 
 
