@@ -250,7 +250,8 @@ under current zoning with single-stair construction, compared with the current t
 Switch to the community-area overview for the same metrics across Chicago's 77 community areas, or
 to parcel detail for the existing scenario, transit-distance, zoning, ownership, vacancy,
 underbuilt, and family-need filters. The dashboard also includes neighborhood 3+ bedroom gap bars,
-community-area capacity comparisons, map details, and an assumption-driven lot simulator. The
+community-area capacity comparisons, hover details anchored to map features, and an
+assumption-driven lot simulator. Map filters remain in a compact overlay on the map. The
 simulator defaults to a 25-by-125-foot lot; change the width to 50 feet for the second documented
 archetype.
 
