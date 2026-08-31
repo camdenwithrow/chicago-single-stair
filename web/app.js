@@ -1,7 +1,7 @@
 /* global maplibregl, pmtiles */
 "use strict";
 
-const state = { candidates: null, zoningCoverage: null, wards: null, communityAreas: null, neighborhoods: [], comparisons: [], metadata: null, map: null, popup: null };
+const state = { candidates: null, zoningCoverage: null, detailLoads: {}, wards: null, communityAreas: null, neighborhoods: [], comparisons: [], metadata: null, map: null, popup: null };
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
@@ -43,7 +43,12 @@ function tierLabel(tier) { return state.metadata.map_scenarios.find((scenario) =
 const tierColors = { res_7: "#c6dbef", res_10: "#6baed6", res_15: "#08519c", com_7: "#bdbdbd", com_15: "#7b3294" };
 
 function updateScenarioNote() {
-  $("map-scenario-note").textContent = state.metadata.map_scenarios.find((scenario) => scenario.id === scenarioField())?.description || "";
+  let note = state.metadata.map_scenarios.find((scenario) => scenario.id === scenarioField())?.description || "";
+  if (scenarioField() === "illinois_build" && state.metadata.build_screening) {
+    const audit = state.metadata.build_screening;
+    note += ` ${number.format(audit.screened_additional_parcel_records)} screened additions; ${number.format(audit.potential_additions_requiring_review)} potential additions excluded pending review.`;
+  }
+  $("map-scenario-note").textContent = note;
 }
 
 function overviewConfig() {
@@ -65,6 +70,8 @@ function updateOverviewStyle() {
   ]);
   const total = values.reduce((sum, value) => sum + value, 0);
   $("map-count").textContent = `${number.format(total)} selected parcel records assigned to ${overview.label}s`;
+  const missing = state.metadata.map_coverage_counts?.[scenarioField()]?.[$("map-view").value === "community" ? "unassigned_community_area" : "unassigned_ward"] || 0;
+  if (missing) $("map-count").textContent += `; ${number.format(missing)} unassigned records excluded`;
   $("map-legend").innerHTML = `<strong>Selected parcel records by ${overview.label}</strong><div class="legend-ramp"></div><span>0</span><span style="float:right">${number.format(maximum)}</span>`;
 }
 
@@ -104,15 +111,41 @@ function featureMatches(feature) {
   return true;
 }
 
-function applyFilters() {
+async function loadMapDetail(view) {
+  const key = view === "zoning" ? "zoningCoverage" : "candidates";
+  if (state[key]) return;
+  if (!state.detailLoads[key]) {
+    const file = view === "zoning" ? "zoning_coverage" : "coverage_parcels";
+    state.detailLoads[key] = fetchGzipJson(`data/${file}.geojson.gz`).then((data) => {
+      state[key] = data;
+      if (key === "candidates") {
+        const zones = [...new Set(data.features.map((feature) => feature.properties.zoning).filter(Boolean))].sort();
+        $("zoning").innerHTML = '<option value="all">All zoning</option>' + zones.map((zone) => `<option value="${escapeHtml(zone)}">${escapeHtml(zone)}</option>`).join("");
+      }
+    }).finally(() => { delete state.detailLoads[key]; });
+  }
+  await state.detailLoads[key];
+}
+
+async function applyFilters() {
   state.popup?.remove();
   updateScenarioNote();
+  const view = $("map-view").value;
+  if (view === "zoning" || view === "parcel") {
+    $("map-count").textContent = "Loading map detail…";
+    try { await loadMapDetail(view); }
+    catch (error) {
+      if ($("map-view").value === view) $("map-count").textContent = `Map detail unavailable: ${error.message}. Change views to retry.`;
+      return;
+    }
+    if ($("map-view").value !== view) return;
+  }
   if ($("map-view").value === "zoning") {
     const features = state.zoningCoverage.features.filter((feature) => feature.properties[scenarioField()] === true);
     state.map?.getSource("zoning-coverage")?.setData({ type: "FeatureCollection", features });
     $("map-count").textContent = `${number.format(features.length)} selected map features · coverage, not legal eligibility`;
     const counts = new Map();
-    for (const feature of features) { const tier = feature.properties.tier || "build_added"; counts.set(tier, (counts.get(tier) || 0) + 1); }
+    for (const feature of features) { const tier = feature.properties.tier || "build_added"; counts.set(tier, (counts.get(tier) || 0) + (feature.properties.parcel_count || 1)); }
     $("map-legend").innerHTML = `<strong>Reference density groups</strong>${[...counts].map(([tier, count]) => `<div><span style="color:${tierColors[tier] || "#d95f0e"}">■</span> ${escapeHtml(tierLabel(tier))}: ${number.format(count)}</div>`).join("")}<div>Standard lot: 3,125 sq ft. Density, not built capacity.</div>`;
     return;
   }
@@ -144,7 +177,10 @@ function parcelDetailsHtml(properties) {
   if (scenarioField() === "illinois_build") {
     if (properties.build_category) rows.push(["BUILD screen", properties.build_category.replaceAll("_", " ")]);
     if (properties.build_effective_unit_limit != null) rows.push(["Screened unit allowance", properties.build_effective_unit_limit]);
-    if (properties.build_review_reasons) rows.push(["Review required", properties.build_review_reasons]);
+    if (properties.build_existing_unit_comparator != null) rows.push(["District comparison allowance", properties.build_existing_unit_comparator]);
+    if (properties.build_existing_unit_limit_basis === "rs_detached_district_ceiling") rows.push(["Comparison basis", "One detached dwelling; source lot-area formula returned zero"]);
+    const reasons = Array.isArray(properties.build_review_reasons) ? properties.build_review_reasons : JSON.parse(properties.build_review_reasons || "[]");
+    if (reasons.length) rows.push(["Review required", reasons.map((reason) => reason.replaceAll("_", " ")).join("; ")]);
   }
   return detailsHtml(rows, "Zoning coverage only, not legal eligibility or a construction forecast. Points are parcel centroids; parcel records are not unique development sites.");
 }
@@ -154,14 +190,27 @@ function areaDetailsHtml(properties, geography) {
   const geographyLabel = isWard ? "Ward" : "Community area";
   const geographyValue = isWard ? properties.ward : properties.community_area_name;
   const count = properties[areaCountField()];
-  return detailsHtml([
+  const rows = [
     [geographyLabel, geographyValue],
     ["Coverage", scenarioLabel()],
     ["Selected parcel records", count == null ? "Unavailable" : number.format(count)]
-  ], "Counts use centroid assignments and all matching parcel records, including occupied sites. They are not additional units or unique development sites.");
+  ];
+  if (scenarioField() === "illinois_build") {
+    rows.push(["Baseline records retained", number.format(properties.current_single_stair_parcel_count || 0)]);
+    rows.push(["BUILD-added records", number.format(properties.build_added_parcel_count || 0)]);
+    rows.push(["Potential additions needing review", number.format(properties.build_review_parcel_count || 0)]);
+  }
+  return detailsHtml(rows, "Counts use centroid assignments and all matching parcel records, including occupied sites. They are not additional units or unique development sites.");
 }
 
 function zoningDetailsHtml(properties) {
+  if (properties.coverage_kind === "build_added_footprint") {
+    return detailsHtml([
+      ["Current zoning", properties.zoning], ["Ward", properties.ward],
+      ["Coverage", "Union of screened BUILD parcel footprints"],
+      ["Parcel records in this ward/district group", number.format(properties.parcel_count)]
+    ], "Only screened parcel footprints are colored, not the entire zoning district. Switch to Parcel detail for individual assumptions. Proposed permission does not establish buildability or a benefit attributable to single stairs.");
+  }
   return detailsHtml([
     ["Current zoning", properties.zoning || "Unavailable"],
     ["Coverage", properties.coverage_kind === "baseline_zoning" ? "Strong Towns selected district" : "BUILD-added parcel screen"],
@@ -193,9 +242,10 @@ function initializeMap() {
   state.popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
   state.map.addControl(new maplibregl.NavigationControl(), "top-left");
   state.map.on("load", () => {
-    state.map.addSource("zoning-coverage", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    // Preserve the exact footprint boundaries; internal parcel edges are dissolved at export.
+    state.map.addSource("zoning-coverage", { type: "geojson", tolerance: 0, data: { type: "FeatureCollection", features: [] } });
     state.map.addLayer({ id: "zoning-fill", type: "fill", source: "zoning-coverage", paint: { "fill-color": ["match", ["get", "tier"], ...Object.entries(tierColors).flat(), "#d95f0e"], "fill-opacity": 0.6 } });
-    state.map.addLayer({ id: "zoning-outline", type: "line", source: "zoning-coverage", paint: { "line-color": "#444", "line-width": 0.5 } });
+    state.map.addLayer({ id: "zoning-outline", type: "line", source: "zoning-coverage", paint: { "line-color": ["case", ["==", ["get", "coverage_kind"], "build_added_footprint"], "#d95f0e", "#444"], "line-width": 0.5 } });
     state.map.addSource("wards", { type: "geojson", data: state.wards });
     state.map.addLayer({ id: "ward-fill", type: "fill", source: "wards", paint: { "fill-color": "#c6dbef", "fill-opacity": 0.72 } });
     state.map.addLayer({ id: "ward-outline", type: "line", source: "wards", paint: { "line-color": "#444", "line-width": 1 } });
@@ -254,8 +304,6 @@ function renderSimulator() {
 
 function populateControls() {
   $("scenario").innerHTML = state.metadata.map_scenarios.map((scenario) => `<option value="${escapeHtml(scenario.id)}">${escapeHtml(scenario.label)}</option>`).join("");
-  const zones = [...new Set(state.candidates.features.map((feature) => feature.properties.zoning).filter(Boolean))].sort();
-  $("zoning").insertAdjacentHTML("beforeend", zones.map((zone) => `<option value="${escapeHtml(zone)}">${escapeHtml(zone)}</option>`).join(""));
   const communities = [...new Map(state.comparisons.map((row) => [String(row.community_area_number), row.community_area_name])).entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
   $("comparison-community").innerHTML = communities.map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("");
   $("comparison-community").value = communities.find((entry) => entry[1] === "LOGAN SQUARE")?.[0] || communities[0]?.[0];
@@ -272,6 +320,10 @@ function renderMethodology() {
   const sources = state.metadata.map_scenarios.flatMap((scenario) => scenario.sources || []);
   const links = [...new Set(sources)].filter((url) => /^https:\/\//.test(url)).map((url) => `<li><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></li>`).join("");
   $("methodology").innerHTML = `<p><strong>Map coverage:</strong> ${escapeHtml(state.metadata.map_definition)}</p><p><strong>Separate capacity charts:</strong> ${escapeHtml(state.metadata.policy_id)} / ${escapeHtml(state.metadata.estimate_id)}. These charts retain the earlier analytical capacity scenarios; they do not change with the map filter.</p><ul>${limitations}</ul><p>Map policy sources:</p><ul>${links}</ul>`;
+  if (state.metadata.build_screening) {
+    const audit = state.metadata.build_screening;
+    $("methodology").insertAdjacentHTML("beforeend", `<p>BUILD screening covers ${number.format(audit.total_parcel_records)} parcel records. ${number.format(audit.unassessed_district_parcel_records)} records have unassessed district permissions. <a href="data/build_screening.parquet" download>Download the complete screening audit (Parquet)</a>, including review reasons and comparison assumptions.</p>`);
+  }
 }
 
 async function main() {
@@ -280,8 +332,9 @@ async function main() {
     if (!metadataResponse.ok) throw new Error("Run uv run single-stair visualize export to generate map data.");
     state.metadata = await metadataResponse.json();
     if (state.metadata.map_schema_version !== 2 || !state.metadata.map_scenarios?.length) throw new Error("Map export is outdated. Run uv run single-stair visualize export, then refresh.");
-    [state.candidates, state.zoningCoverage, state.wards, state.communityAreas, state.neighborhoods, state.comparisons] = await Promise.all([
-      fetchGzipJson("data/coverage_parcels.geojson.gz"), fetchGzipJson("data/zoning_coverage.geojson.gz"), fetch("data/coverage_wards.geojson").then((r) => r.json()), fetch("data/coverage_community_areas.geojson").then((r) => r.json()), fetch("data/neighborhoods.json").then((r) => r.json()),
+    if (!state.metadata.build_screening || !state.metadata.map_scenarios.some((scenario) => scenario.id === "illinois_build")) throw new Error("Map export is outdated for BUILD. Run uv run single-stair visualize export, then refresh.");
+    [state.wards, state.communityAreas, state.neighborhoods, state.comparisons] = await Promise.all([
+      fetch("data/coverage_wards.geojson").then((r) => r.json()), fetch("data/coverage_community_areas.geojson").then((r) => r.json()), fetch("data/neighborhoods.json").then((r) => r.json()),
       fetch("data/comparisons.json").then((r) => r.json())
     ]);
     populateControls(); initializeMap(); renderNeedChart(); renderComparison(); renderSimulator(); renderMethodology();

@@ -47,3 +47,57 @@ test("legacy exports fail with actionable regeneration instruction", async () =>
   await vm.runInContext("main()", context);
   assert.match(controls.status.textContent, /outdated.*uv run single-stair visualize export/);
 });
+
+test("BUILD rejects baseline-only exports with regeneration instruction", async () => {
+  const { context, controls } = appContext();
+  context.fetch = async () => ({ ok: true, json: async () => ({map_schema_version: 2, map_scenarios: [{id: "current_single_stair"}]}) });
+  await vm.runInContext("main()", context);
+  assert.match(controls.status.textContent, /outdated for BUILD.*visualize export/);
+});
+
+test("BUILD parcel details accept serialized review arrays and distinguish comparison basis", () => {
+  const { context, controls } = appContext();
+  controls.scenario.value = "illinois_build";
+  vm.runInContext("state.metadata = {map_scenarios: [{id:'illinois_build',label:'With IL BUILD (proposed)'}]}", context);
+  context.properties = {build_category: "screened_expansion", build_effective_unit_limit: 4, build_existing_unit_comparator: 1, build_existing_unit_limit_basis: "rs_detached_district_ceiling", build_review_reasons: "[]"};
+  let html = vm.runInContext("parcelDetailsHtml(properties)", context);
+  assert.match(html, /source lot-area formula returned zero/);
+  assert.doesNotMatch(html, /Review required/);
+  context.properties.build_review_reasons = '["detached_use_preservation_and_transit_review"]';
+  html = vm.runInContext("parcelDetailsHtml(properties)", context);
+  assert.match(html, /detached use preservation and transit review/);
+});
+
+test("BUILD overview popup describes footprint group counts, not a parcel allowance", () => {
+  const { context } = appContext();
+  context.properties = {coverage_kind: "build_added_footprint", zoning: "RS-3", ward: "1", parcel_count: 120};
+  const html = vm.runInContext("zoningDetailsHtml(properties)", context);
+  assert.match(html, /120/);
+  assert.match(html, /ward\/district group/);
+  assert.match(html, /Switch to Parcel detail/);
+  assert.doesNotMatch(html, /Proposed middle-housing allowance/);
+});
+
+test("detail loads are deferred, shared by concurrent requests, and cached", async () => {
+  const { context } = appContext();
+  let calls = 0;
+  let resolve;
+  context.fetchGzipJson = () => { calls++; return new Promise((done) => { resolve = done; }); };
+  assert.equal(calls, 0);
+  const first = vm.runInContext("loadMapDetail('zoning')", context);
+  const second = vm.runInContext("loadMapDetail('zoning')", context);
+  assert.equal(calls, 1);
+  resolve({type: "FeatureCollection", features: []});
+  await Promise.all([first, second]);
+  await vm.runInContext("loadMapDetail('zoning')", context);
+  assert.equal(calls, 1);
+});
+
+test("failed detail downloads can be retried", async () => {
+  const { context } = appContext();
+  context.fetchGzipJson = async () => { throw new Error("offline"); };
+  await assert.rejects(vm.runInContext("loadMapDetail('zoning')", context), /offline/);
+  context.fetchGzipJson = async () => ({type: "FeatureCollection", features: []});
+  await vm.runInContext("loadMapDetail('zoning')", context);
+  assert.equal(vm.runInContext("state.zoningCoverage.features.length", context), 0);
+});

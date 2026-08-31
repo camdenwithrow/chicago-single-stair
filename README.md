@@ -268,6 +268,32 @@ assumptions, official sources, and limitations are versioned in
 
 ## Visualization
 
+The BUILD comparison uses the introduced SB4060 middle-housing allowances, not the earlier
+one-step upzoning assumptions. The map offers **Current zoning** (the exact Strong Towns
+14-district selection) and **With IL BUILD (proposed)** (that baseline plus screened parcel
+additions). Newly added areas use exact unions of screened parcel footprints by ward/district,
+not a blanket recoloring of whole zoning districts. Dissolving interior edges keeps small
+parcels visible at overview scale; individual records remain in Parcel detail and the audit.
+Ward/community totals count selected tax-parcel records, not added homes.
+
+See [the source-backed research and limitations](docs/illinois-build-research.md).
+The export also writes `web/data/build_screening.parquet`: one row per source parcel
+`objectid`, including excluded/unknown records, conditional eligibility, policy allowance,
+comparison basis and review reasons. The dataset is owned by this project; source snapshots
+remain referenced in `metadata.json`. Review cases are not silently counted as confirmed
+expansion, and previously higher district allowances are never reduced to BUILD's tiers.
+
+In a worktree, reuse main's snapshots read-only without copying them:
+
+```bash
+uv run single-stair visualize export --raw-root /absolute/path/to/main/data/raw --final-root /absolute/path/to/main/data/final
+```
+
+BUILD's full-city polygon and point files are larger than the baseline-only export. The
+default overview loads only aggregate boundaries and charts; detail layers download on first
+selection, with loading/error messages and retry support. If detail-view browser memory
+becomes a constraint, publish vector tiles; a new service is not required for this preview.
+
 Export browser-ready data from the latest analytical snapshots and serve the static app locally:
 
 ```bash
@@ -299,7 +325,8 @@ Parcel-only filters are disabled for aggregate and zoning views rather than sile
 their population.
 
 Map schema version 2 lives in `metadata.json`. `coverage_parcels.geojson.gz` is keyed by source
-parcel `objectid`; `zoning_coverage.geojson.gz` by city zoning `objectid`;
+parcel `objectid`; `zoning_coverage.geojson.gz` by city zoning `objectid` for baseline features
+and `build:<zoning>:<ward>` for BUILD footprint unions (with a contributing `parcel_count`);
 `coverage_wards.geojson` by ward and `coverage_community_areas.geojson` by community-area number.
 Scenario membership is a boolean property; area counts are `<scenario>_parcel_count`. These are
 project-owned derived products, with source snapshot paths recorded in metadata. Re-export old

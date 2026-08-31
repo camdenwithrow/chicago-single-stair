@@ -11,6 +11,14 @@ import duckdb
 import geopandas as gpd
 import pandas as pd
 
+from single_stair.build_coverage import (
+    build_addition_geojson,
+    build_map_scenario,
+    build_screening_summary,
+    potential_build_review,
+    write_build_audit,
+)
+from single_stair.illinois_build import enrich_build_parcels, load_build_policy
 from single_stair.transform.clean_and_join import latest_snapshot
 from single_stair.zoning_filters import (
     coverage_area_geojson,
@@ -275,22 +283,28 @@ def export_visualization_data(
     scenario_config = json.loads(
         files("single_stair").joinpath("config/building_scenarios.v1.json").read_text("utf-8")
     )
-    map_scenarios = [current_zoning_config()]
+    map_scenarios = [current_zoning_config(), build_map_scenario()]
     map_scenario_ids = [scenario["id"] for scenario in map_scenarios]
-    coverage = read_coverage_parcels(parcel_source)
+    coverage = enrich_build_parcels(read_coverage_parcels(parcel_source))
+    coverage["build_added"] = coverage.build_category.eq("screened_expansion")
+    coverage["build_review"] = potential_build_review(coverage)
     coverage_points = coverage_parcel_geojson(coverage, map_scenario_ids)
     zoning_coverage = current_zoning_geojson(zoning_source)
+    for feature in zoning_coverage["features"]:
+        feature["properties"]["illinois_build"] = True
+    zoning_coverage["features"].extend(build_addition_geojson(parcel_source, coverage)["features"])
+    summary_scenarios = [*map_scenario_ids, "build_added", "build_review"]
     coverage_wards = coverage_area_geojson(
         read_boundaries(ward_boundary_source),
         coverage,
-        map_scenario_ids,
+        summary_scenarios,
         boundary_key="ward",
         parcel_key="ward",
     )
     coverage_communities = coverage_area_geojson(
         read_boundaries(community_boundary_source),
         coverage,
-        map_scenario_ids,
+        summary_scenarios,
         boundary_key="area_numbe",
         parcel_key="community_area_number",
         boundary_name="community",
@@ -299,6 +313,7 @@ def export_visualization_data(
     _write_json(output_directory / "zoning_coverage.geojson.gz", zoning_coverage, compressed=True)
     _write_json(output_directory / "coverage_wards.geojson", coverage_wards)
     _write_json(output_directory / "coverage_community_areas.geojson", coverage_communities)
+    write_build_audit(coverage, output_directory / "build_screening.parquet")
     _write_json(output_directory / "candidates.geojson.gz", candidates, compressed=True)
     _write_json(output_directory / "neighborhoods.json", neighborhoods)
     _write_json(output_directory / "comparisons.json", comparisons)
@@ -310,6 +325,8 @@ def export_visualization_data(
             "generated_at": datetime.now(UTC).isoformat(),
             "map_schema_version": 2,
             "map_scenarios": map_scenarios,
+            "build_screening": build_screening_summary(coverage),
+            "build_policy": load_build_policy(),
             "map_parcel_count": len(coverage_points["features"]),
             "map_definition": (
                 "Selected zoning coverage, not legal single-stair eligibility or a unit forecast. "
@@ -319,7 +336,11 @@ def export_visualization_data(
             ),
             "map_grain": {
                 "parcels": "One source parcel objectid, shown at its centroid",
-                "zoning": "One city zoning objectid, original polygon geometry",
+                "zoning": (
+                    "Baseline: one city zoning objectid. BUILD additions: exact union of "
+                    "screened parcel footprints per district/ward, keyed build:<zoning>:<ward>. "
+                    "parcel_count retains the number of contributing source records."
+                ),
                 "wards": "One official ward; parcel records assigned by centroid",
                 "community_areas": "One official community area; records assigned by centroid",
             },
