@@ -1,0 +1,44 @@
+{
+  "config_version": "1.0.0",
+  "scenario_id": "illinois_build",
+  "title": "Proposed Illinois BUILD: current coverage plus screened middle-housing additions",
+  "status": "proposed_not_enacted_scenario",
+  "bill_version": "SB4060 as introduced February 19, 2026",
+  "researched_on": "2026-08-31",
+  "unit_allowance_bands": [
+    {"area_max_inclusive_sqft": 2500, "units": 1},
+    {"area_min_exclusive_sqft": 2500, "area_max_inclusive_sqft": 5000, "units": 4},
+    {"area_min_exclusive_sqft": 5000, "area_max_inclusive_sqft": 7500, "units": 6},
+    {"area_min_exclusive_sqft": 7500, "units": 8}
+  ],
+  "screening": {
+    "automatic_addition_zones": ["RS-1", "RS-2", "RS-3"],
+    "conditional_review_zones": ["RT", "RM", "B2"],
+    "special_use_review_zones": ["B1", "B3", "C1", "C2"],
+    "definition": "Preserve the exact current map footprint; add conventional, non-unitized RS tax parcels above 2,500 sqft where the proposed unit allowance exceeds the current modeled zoning unit limit and no relevant parcel-area review blocker is known.",
+    "baseline_preserved": true,
+    "existing_higher_allowances_preserved": true,
+    "rs_zero_comparator": "Where the current RS zoning-unit formula yields zero on an undersized lot, compare to the one-detached-dwelling district ceiling instead; retain the original source cap and label the comparator basis. This does not establish the validity of an existing legal lot or dwelling.",
+    "allowance_difference": "Proposed unit allowance minus modeled district comparator, floored at zero. Not the number of new units over existing dwellings, a construction forecast or units attributable to stair reform.",
+    "units_attributable_to_stair_reform": false,
+    "default_bulk_standards_automatically_applied": false,
+    "conditional_numeric_fields": "Allowance and increment on review rows are conditional calculations and must not be summed as confirmed expansion.",
+    "limitations": [
+      "Tax parcels are not verified legal zoning lots. Screening does not establish buildability, lot assembly, existing-building conversion feasibility or development likelihood.",
+      "A four-, six- or eight-unit middle-housing permission is not proof that a shared single stair is necessary or beneficial, nor does it grant six-story zoning.",
+      "Chicago detached-house restrictions in preservation areas and near rail entrances or designated bus corridors are not completely represented; RT/RM/B2 additions require review.",
+      "Special-use detached-house permissions are not automatically treated as by-right BUILD eligibility; unknown zoning classes remain unknown.",
+      "Small lots eligible only for one detached dwelling are not newly added to the middle-housing map.",
+      "SB4060 default bulk standards depend on municipal noncompliance after the transition and are not applied globally. Introduced-text cross-reference inconsistencies require legal review.",
+      "Existing-building conversion, ADUs, parking, permitting and impact-fee measures are not simulated by the parcel unit-allowance screen."
+    ]
+  },
+  "sources": [
+    {"id": "sb4060", "organization": "Illinois General Assembly", "title": "SB4060 introduced text, sections 11-13.1-5, -10, -15, -20 and -30", "url": "https://ilga.gov/Legislation/BillStatus/FullText?DocNum=4060&DocTypeID=SB&GAID=18&LegId=167733&Print=1&SessionID=114"},
+    {"id": "chicago_residential_uses", "organization": "City of Chicago", "title": "17-2-0200 residential district use table", "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2681101"},
+    {"id": "chicago_residential_restrictions", "organization": "City of Chicago", "title": "17-2-0303-B detached-house restrictions", "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2681113"},
+    {"id": "chicago_business_uses", "organization": "City of Chicago", "title": "17-3-0200 business and commercial use table", "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2681344"},
+    {"id": "chicago_business_restrictions", "organization": "City of Chicago", "title": "17-3-0307 detached-house restrictions", "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2681357"},
+    {"id": "sb4061", "organization": "Illinois General Assembly", "title": "SB4061 introduced single-stair provisions", "url": "https://witnessslips.ilga.gov/Legislation/BillStatus/FullText?DocNum=4061&DocTypeID=SB&GAID=18&LegId=167735&SessionID=114"}
+  ]
+}

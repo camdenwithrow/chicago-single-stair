@@ -268,6 +268,32 @@ assumptions, official sources, and limitations are versioned in
 
 ## Visualization
 
+The BUILD comparison uses the introduced SB4060 middle-housing allowances, not the earlier
+one-step upzoning assumptions. The map offers **Current zoning** (the exact Strong Towns
+14-district selection) and **With IL BUILD (proposed)** (that baseline plus screened parcel
+additions). Newly added areas use exact unions of screened parcel footprints by ward/district,
+not a blanket recoloring of whole zoning districts. Dissolving interior edges keeps small
+parcels visible at overview scale; individual records remain in Parcel detail and the audit.
+Ward/community totals count selected tax-parcel records, not added homes.
+
+See [the source-backed research and limitations](docs/illinois-build-research.md).
+The export also writes `web/data/build_screening.parquet`: one row per source parcel
+`objectid`, including excluded/unknown records, conditional eligibility, policy allowance,
+comparison basis and review reasons. The dataset is owned by this project; source snapshots
+remain referenced in `metadata.json`. Review cases are not silently counted as confirmed
+expansion, and previously higher district allowances are never reduced to BUILD's tiers.
+
+In a worktree, reuse main's snapshots read-only without copying them:
+
+```bash
+uv run single-stair visualize export --raw-root /absolute/path/to/main/data/raw --final-root /absolute/path/to/main/data/final
+```
+
+BUILD's full-city polygon and point files are larger than the baseline-only export. The
+default overview loads only aggregate boundaries and charts; detail layers download on first
+selection, with loading/error messages and retry support. If detail-view browser memory
+becomes a constraint, publish vector tiles; a new service is not required for this preview.
+
 Export browser-ready data from the latest analytical snapshots and serve the static app locally:
 
 ```bash
@@ -276,16 +302,44 @@ uv run --env-file .env single-stair visualize configure
 python3 -m http.server 8000 --directory web
 ```
 
-Then open `http://localhost:8000`. Generated files under `web/data/` are excluded from Git. The
-candidate GeoJSON contains centroids for every modeled parcel independently flagged vacant,
-underbuilt, or city-owned; it is gzip-compressed to approximately 4 MB for browser delivery. This
-is a transparent research universe rather than a ranked recommendation list.
+Then open `http://localhost:8000`. Generated files under `web/data/` are excluded from Git.
 
-The map defaults to an official ward-boundary overview of additional modeled 3-bedroom capacity
-under current zoning with single-stair construction, compared with the current two-stair baseline.
-Switch to the community-area overview for the same metrics across Chicago's 77 community areas, or
-to parcel detail for the existing scenario, transit-distance, zoning, ownership, vacancy,
-underbuilt, and family-need filters. The dashboard also includes neighborhood 3+ bedroom gap bars,
+The map defaults to a ward overview of **selected parcel records**, not additional housing units.
+Current zoning reproduces the 14 selected classes in the
+[Strong Towns Chicago map](https://www.strongtownschicago.org/single-stair), using this project's
+ingested City of Chicago geometry. It is a zoning coverage screen, not a legal determination that
+single-stair construction is permitted today or that every selected site can benefit. The exact
+allowlist, publisher tiers, review date, and sources are versioned in
+`src/single_stair/config/zoning_coverage.v1.json`. B/C classes retain their source district family;
+the capacity model's collapsed B/C rule names must not be used for this selection. Publisher FAR
+tooltips are not imported. Ground-floor permissions can involve special-use exceptions and always
+need site-specific review.
+
+Switch to community areas for the same counts, zoning coverage for original selected polygons,
+or parcel detail for centroid points and optional transit-distance, zoning, ownership, vacancy,
+underbuilt, and family-need filters. All matching final parcel records are included before these
+optional filters, even occupied records or those with no modeled capacity. Records are not unique
+development sites: condominiums and other unitized records can share a site. Ward/community counts
+use existing centroid assignments; unassigned and unmappable records are audited in metadata.
+Parcel-only filters are disabled for aggregate and zoning views rather than silently changing
+their population.
+
+Map schema version 2 lives in `metadata.json`. `coverage_parcels.geojson.gz` is keyed by source
+parcel `objectid`; `zoning_coverage.geojson.gz` by city zoning `objectid` for baseline features
+and `build:<zoning>:<ward>` for BUILD footprint unions (with a contributing `parcel_count`);
+`coverage_wards.geojson` by ward and `coverage_community_areas.geojson` by community-area number.
+Scenario membership is a boolean property; area counts are `<scenario>_parcel_count`. These are
+project-owned derived products, with source snapshot paths recorded in metadata. Re-export old
+data after updating the app; outdated metadata produces an explicit re-export message.
+
+Worktrees can read existing snapshots without copying them:
+
+```bash
+uv run single-stair visualize export --raw-root /path/to/main/data/raw --final-root /path/to/main/data/final
+```
+
+The separate charts retain their earlier capacity scenarios and do not respond to map filters.
+The dashboard also includes neighborhood 3+ bedroom gap bars,
 community-area capacity comparisons, hover details anchored to map features, and an
 assumption-driven lot simulator. Map filters remain in a compact overlay on the map. The
 simulator defaults to a 25-by-125-foot lot; change the width to 50 feet for the second documented

@@ -44,8 +44,7 @@ select, input[type="number"] {
 .check { display: flex; gap: .4rem; align-items: center; }
 .metric { font-variant-numeric: tabular-nums; font-weight: 650; }
 .map-message {
-  position: absolute; left: 1rem; bottom: 1rem; max-width: 28rem; padding: .6rem;
-  background: rgba(255,255,255,.94); border: 1px solid #999; font-size: .8rem;
+  margin: .75rem 0 0; font-size: .8rem; color: #555; overflow-wrap: anywhere;
 }
 .map-legend {
   position: absolute; z-index: 2; left: 1rem; bottom: 2rem; max-width: calc(100% - 2rem); padding: .5rem;

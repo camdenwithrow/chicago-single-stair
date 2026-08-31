@@ -1,7 +1,7 @@
 /* global maplibregl, pmtiles */
 "use strict";
 
-const state = { candidates: null, wards: null, communityAreas: null, neighborhoods: [], comparisons: [], metadata: null, map: null, popup: null };
+const state = { candidates: null, zoningCoverage: null, detailLoads: {}, wards: null, communityAreas: null, neighborhoods: [], comparisons: [], metadata: null, map: null, popup: null };
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
@@ -37,8 +37,19 @@ function basemapStyle() {
 
 function scenarioField() { return $("scenario").value; }
 
-function areaCapacityField() { return `${scenarioField()}_modeled_capacity_units`; }
-function areaGainField() { return `${scenarioField()}_incremental_capacity_vs_current_two_stair_units`; }
+function areaCountField() { return `${scenarioField()}_parcel_count`; }
+function scenarioLabel() { return state.metadata.map_scenarios.find((scenario) => scenario.id === scenarioField())?.label || scenarioField(); }
+function tierLabel(tier) { return state.metadata.map_scenarios.find((scenario) => scenario.id === "current_single_stair")?.tier_labels?.[tier] || "BUILD-added parcel screen"; }
+const tierColors = { res_7: "#c6dbef", res_10: "#6baed6", res_15: "#08519c", com_7: "#bdbdbd", com_15: "#7b3294" };
+
+function updateScenarioNote() {
+  let note = state.metadata.map_scenarios.find((scenario) => scenario.id === scenarioField())?.description || "";
+  if (scenarioField() === "illinois_build" && state.metadata.build_screening) {
+    const audit = state.metadata.build_screening;
+    note += ` ${number.format(audit.screened_additional_parcel_records)} screened additions; ${number.format(audit.potential_additions_requiring_review)} potential additions excluded pending review.`;
+  }
+  $("map-scenario-note").textContent = note;
+}
 
 function overviewConfig() {
   return $("map-view").value === "community"
@@ -49,7 +60,7 @@ function overviewConfig() {
 function updateOverviewStyle() {
   const overview = overviewConfig();
   if (!state.map?.getLayer(overview.fillLayer)) return;
-  const field = areaGainField();
+  const field = areaCountField();
   const values = overview.data.features.map((feature) => Number(feature.properties[field]) || 0);
   const maximum = Math.max(...values, 1);
   state.map.setPaintProperty(overview.fillLayer, "fill-color", [
@@ -58,23 +69,27 @@ function updateOverviewStyle() {
       0, "#f3f1eb", maximum * 0.25, "#c6dbef", maximum * 0.6, "#6baed6", maximum, "#08519c"]
   ]);
   const total = values.reduce((sum, value) => sum + value, 0);
-  $("map-count").textContent = `${number.format(total)} additional modeled 3-bedroom units citywide`;
-  $("map-legend").innerHTML = `<strong>Additional 3-bedroom capacity by ${overview.label}</strong><div class="legend-ramp"></div><span>0</span><span style="float:right">${number.format(maximum)}</span><div>Gray: not modeled</div>`;
+  $("map-count").textContent = `${number.format(total)} selected parcel records assigned to ${overview.label}s`;
+  const missing = state.metadata.map_coverage_counts?.[scenarioField()]?.[$("map-view").value === "community" ? "unassigned_community_area" : "unassigned_ward"] || 0;
+  if (missing) $("map-count").textContent += `; ${number.format(missing)} unassigned records excluded`;
+  $("map-legend").innerHTML = `<strong>Selected parcel records by ${overview.label}</strong><div class="legend-ramp"></div><span>0</span><span style="float:right">${number.format(maximum)}</span>`;
 }
 
 function updateMapView() {
   if (!state.map?.getLayer("ward-fill")) return;
   state.popup?.remove();
+  updateScenarioNote();
   const mapView = $("map-view").value;
-  const overviewView = mapView !== "parcel";
+  const overviewView = mapView === "ward" || mapView === "community";
   for (const layer of ["ward-fill", "ward-outline"]) state.map.setLayoutProperty(layer, "visibility", mapView === "ward" ? "visible" : "none");
   for (const layer of ["community-fill", "community-outline"]) state.map.setLayoutProperty(layer, "visibility", mapView === "community" ? "visible" : "none");
-  for (const layer of ["candidate-clusters", "candidate-points"]) state.map.setLayoutProperty(layer, "visibility", overviewView ? "none" : "visible");
+  for (const layer of ["candidate-clusters", "candidate-points"]) state.map.setLayoutProperty(layer, "visibility", mapView === "parcel" ? "visible" : "none");
+  for (const layer of ["zoning-fill", "zoning-outline"]) state.map.setLayoutProperty(layer, "visibility", mapView === "zoning" ? "visible" : "none");
   for (const label of document.querySelectorAll(".parcel-filter")) {
-    label.classList.toggle("is-disabled", overviewView);
-    for (const control of label.querySelectorAll("select,input")) control.disabled = overviewView;
+    label.classList.toggle("is-disabled", mapView !== "parcel");
+    for (const control of label.querySelectorAll("select,input")) control.disabled = mapView !== "parcel";
   }
-  $("map-legend").hidden = !overviewView;
+  $("map-legend").hidden = mapView === "parcel";
   if (overviewView) {
     updateOverviewStyle();
     state.map.fitBounds([[-87.95, 41.63], [-87.50, 42.03]], { padding: 24, duration: 0 });
@@ -85,8 +100,8 @@ function updateMapView() {
 
 function featureMatches(feature) {
   const p = feature.properties;
-  if (!(Number(p[scenarioField()]) > 0)) return false;
-  if (Number($("transit-distance").value) < 999999 && !(p.transit_distance_ft <= Number($("transit-distance").value))) return false;
+  if (p[scenarioField()] !== true) return false;
+  if (Number($("transit-distance").value) < 999999 && (p.transit_distance_ft == null || !(p.transit_distance_ft <= Number($("transit-distance").value)))) return false;
   if ($("zoning").value !== "all" && p.zoning !== $("zoning").value) return false;
   if ($("ownership").value === "city" && !p.city_owned) return false;
   if ($("ownership").value === "private" && p.city_owned) return false;
@@ -96,8 +111,44 @@ function featureMatches(feature) {
   return true;
 }
 
-function applyFilters() {
+async function loadMapDetail(view) {
+  const key = view === "zoning" ? "zoningCoverage" : "candidates";
+  if (state[key]) return;
+  if (!state.detailLoads[key]) {
+    const file = view === "zoning" ? "zoning_coverage" : "coverage_parcels";
+    state.detailLoads[key] = fetchGzipJson(`data/${file}.geojson.gz`).then((data) => {
+      state[key] = data;
+      if (key === "candidates") {
+        const zones = [...new Set(data.features.map((feature) => feature.properties.zoning).filter(Boolean))].sort();
+        $("zoning").innerHTML = '<option value="all">All zoning</option>' + zones.map((zone) => `<option value="${escapeHtml(zone)}">${escapeHtml(zone)}</option>`).join("");
+      }
+    }).finally(() => { delete state.detailLoads[key]; });
+  }
+  await state.detailLoads[key];
+}
+
+async function applyFilters() {
   state.popup?.remove();
+  updateScenarioNote();
+  const view = $("map-view").value;
+  if (view === "zoning" || view === "parcel") {
+    $("map-count").textContent = "Loading map detail…";
+    try { await loadMapDetail(view); }
+    catch (error) {
+      if ($("map-view").value === view) $("map-count").textContent = `Map detail unavailable: ${error.message}. Change views to retry.`;
+      return;
+    }
+    if ($("map-view").value !== view) return;
+  }
+  if ($("map-view").value === "zoning") {
+    const features = state.zoningCoverage.features.filter((feature) => feature.properties[scenarioField()] === true);
+    state.map?.getSource("zoning-coverage")?.setData({ type: "FeatureCollection", features });
+    $("map-count").textContent = `${number.format(features.length)} selected map features · coverage, not legal eligibility`;
+    const counts = new Map();
+    for (const feature of features) { const tier = feature.properties.tier || "build_added"; counts.set(tier, (counts.get(tier) || 0) + (feature.properties.parcel_count || 1)); }
+    $("map-legend").innerHTML = `<strong>Reference density groups</strong>${[...counts].map(([tier, count]) => `<div><span style="color:${tierColors[tier] || "#d95f0e"}">■</span> ${escapeHtml(tierLabel(tier))}: ${number.format(count)}</div>`).join("")}<div>Standard lot: 3,125 sq ft. Density, not built capacity.</div>`;
+    return;
+  }
   if ($("map-view").value !== "parcel") {
     updateOverviewStyle();
     return;
@@ -106,7 +157,7 @@ function applyFilters() {
   if (state.map?.getSource("candidates")) {
     state.map.getSource("candidates").setData({ type: "FeatureCollection", features });
   }
-  $("map-count").textContent = `${number.format(features.length)} parcels match`;
+  $("map-count").textContent = `${number.format(features.length)} parcel records match`;
 }
 
 function detailsHtml(rows, note) {
@@ -116,34 +167,55 @@ function detailsHtml(rows, note) {
 function parcelDetailsHtml(properties) {
   const rows = [
     ["PIN", properties.pin || "Unavailable"], ["Community", properties.community || "Unavailable"],
-    ["Current zoning", properties.zoning || "Unsupported"], ["Upzoned class", properties.upzoned_zoning || "Not modeled"],
+    ["Current zoning", properties.zoning || "Unavailable"], ["Coverage", scenarioLabel()],
     ["Transit", properties.transit_distance_ft == null ? "Unavailable" : `${number.format(properties.transit_distance_ft)} ft · ${properties.transit_agency || "nearest"}`],
     ["City-owned", properties.city_owned ? "Yes" : "No"], ["Vacant flag", properties.vacant ? "Yes" : "No"],
-    ["Underbuilt flag", properties.underbuilt ? "Yes" : "No"], ["Current / two stair", properties.current_two_stair ?? "—"],
-    ["Current / single stair", properties.current_single_stair ?? "—"], ["Upzoned / single stair", properties.upzoned_single_stair ?? "—"],
-    ["Legal/site review", properties.requires_review ? properties.review_reasons || "Required" : "No automated reason"]
+    ["Underbuilt flag", properties.underbuilt ? "Yes" : "No"],
+    ["Baseline selected district", properties.current_single_stair ? "Yes" : "No"]
   ];
-  return detailsHtml(rows, "Capacities use the 3-bedroom archetype. Points are parcel centroids.");
+  if (properties.tier) rows.push(["Reference density group", tierLabel(properties.tier)]);
+  if (scenarioField() === "illinois_build") {
+    if (properties.build_category) rows.push(["BUILD screen", properties.build_category.replaceAll("_", " ")]);
+    if (properties.build_effective_unit_limit != null) rows.push(["Screened unit allowance", properties.build_effective_unit_limit]);
+    if (properties.build_existing_unit_comparator != null) rows.push(["District comparison allowance", properties.build_existing_unit_comparator]);
+    if (properties.build_existing_unit_limit_basis === "rs_detached_district_ceiling") rows.push(["Comparison basis", "One detached dwelling; source lot-area formula returned zero"]);
+    const reasons = Array.isArray(properties.build_review_reasons) ? properties.build_review_reasons : JSON.parse(properties.build_review_reasons || "[]");
+    if (reasons.length) rows.push(["Review required", reasons.map((reason) => reason.replaceAll("_", " ")).join("; ")]);
+  }
+  return detailsHtml(rows, "Zoning coverage only, not legal eligibility or a construction forecast. Points are parcel centroids; parcel records are not unique development sites.");
 }
 
 function areaDetailsHtml(properties, geography) {
-  const scenarioNames = {
-    current_two_stair: "Current zoning · two stair",
-    current_single_stair: "Current zoning · single stair",
-    upzoned_single_stair: "Modest upzoning · single stair"
-  };
   const isWard = geography === "ward";
   const geographyLabel = isWard ? "Ward" : "Community area";
   const geographyValue = isWard ? properties.ward : properties.community_area_name;
-  const capacity = properties[areaCapacityField()];
-  const gain = properties[areaGainField()];
-  const displayMetric = (value) => value == null ? "Not modeled" : number.format(value);
-  return detailsHtml([
+  const count = properties[areaCountField()];
+  const rows = [
     [geographyLabel, geographyValue],
-    ["Scenario", scenarioNames[scenarioField()]],
-    ["Modeled 3-bedroom capacity", displayMetric(capacity)],
-    ["Additional vs. current two stair", displayMetric(gain)]
-  ], `${geographyLabel} totals aggregate parcel-level analytical capacity.`);
+    ["Coverage", scenarioLabel()],
+    ["Selected parcel records", count == null ? "Unavailable" : number.format(count)]
+  ];
+  if (scenarioField() === "illinois_build") {
+    rows.push(["Baseline records retained", number.format(properties.current_single_stair_parcel_count || 0)]);
+    rows.push(["BUILD-added records", number.format(properties.build_added_parcel_count || 0)]);
+    rows.push(["Potential additions needing review", number.format(properties.build_review_parcel_count || 0)]);
+  }
+  return detailsHtml(rows, "Counts use centroid assignments and all matching parcel records, including occupied sites. They are not additional units or unique development sites.");
+}
+
+function zoningDetailsHtml(properties) {
+  if (properties.coverage_kind === "build_added_footprint") {
+    return detailsHtml([
+      ["Current zoning", properties.zoning], ["Ward", properties.ward],
+      ["Coverage", "Union of screened BUILD parcel footprints"],
+      ["Parcel records in this ward/district group", number.format(properties.parcel_count)]
+    ], "Only screened parcel footprints are colored, not the entire zoning district. Switch to Parcel detail for individual assumptions. Proposed permission does not establish buildability or a benefit attributable to single stairs.");
+  }
+  return detailsHtml([
+    ["Current zoning", properties.zoning || "Unavailable"],
+    ["Coverage", properties.coverage_kind === "baseline_zoning" ? "Strong Towns selected district" : "BUILD-added parcel screen"],
+    ["Reference group", tierLabel(properties.tier)]
+  ], "Reference density uses a 3,125 sq ft standard lot, not actual unit capacity. Commercial ground-floor groups can have special-use exceptions. Local use, bulk, safety, and site requirements still need review.");
 }
 
 function bindFeaturePopup(layer, renderDetails, coordinates) {
@@ -170,6 +242,10 @@ function initializeMap() {
   state.popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
   state.map.addControl(new maplibregl.NavigationControl(), "top-left");
   state.map.on("load", () => {
+    // Preserve the exact footprint boundaries; internal parcel edges are dissolved at export.
+    state.map.addSource("zoning-coverage", { type: "geojson", tolerance: 0, data: { type: "FeatureCollection", features: [] } });
+    state.map.addLayer({ id: "zoning-fill", type: "fill", source: "zoning-coverage", paint: { "fill-color": ["match", ["get", "tier"], ...Object.entries(tierColors).flat(), "#d95f0e"], "fill-opacity": 0.6 } });
+    state.map.addLayer({ id: "zoning-outline", type: "line", source: "zoning-coverage", paint: { "line-color": ["case", ["==", ["get", "coverage_kind"], "build_added_footprint"], "#d95f0e", "#444"], "line-width": 0.5 } });
     state.map.addSource("wards", { type: "geojson", data: state.wards });
     state.map.addLayer({ id: "ward-fill", type: "fill", source: "wards", paint: { "fill-color": "#c6dbef", "fill-opacity": 0.72 } });
     state.map.addLayer({ id: "ward-outline", type: "line", source: "wards", paint: { "line-color": "#444", "line-width": 1 } });
@@ -186,6 +262,7 @@ function initializeMap() {
     });
     bindFeaturePopup("ward-fill", (properties) => areaDetailsHtml(properties, "ward"));
     bindFeaturePopup("community-fill", (properties) => areaDetailsHtml(properties, "community"));
+    bindFeaturePopup("zoning-fill", zoningDetailsHtml);
     bindFeaturePopup(
       "candidate-points",
       parcelDetailsHtml,
@@ -226,8 +303,7 @@ function renderSimulator() {
 }
 
 function populateControls() {
-  const zones = [...new Set(state.candidates.features.map((feature) => feature.properties.zoning).filter(Boolean))].sort();
-  $("zoning").insertAdjacentHTML("beforeend", zones.map((zone) => `<option value="${escapeHtml(zone)}">${escapeHtml(zone)}</option>`).join(""));
+  $("scenario").innerHTML = state.metadata.map_scenarios.map((scenario) => `<option value="${escapeHtml(scenario.id)}">${escapeHtml(scenario.label)}</option>`).join("");
   const communities = [...new Map(state.comparisons.map((row) => [String(row.community_area_number), row.community_area_name])).entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
   $("comparison-community").innerHTML = communities.map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("");
   $("comparison-community").value = communities.find((entry) => entry[1] === "LOGAN SQUARE")?.[0] || communities[0]?.[0];
@@ -241,17 +317,28 @@ function populateControls() {
 
 function renderMethodology() {
   const limitations = state.metadata.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
-  $("methodology").innerHTML = `<p><strong>Candidate definition:</strong> ${escapeHtml(state.metadata.candidate_definition)}.</p><p><strong>Default analysis:</strong> ${escapeHtml(state.metadata.policy_id)} / ${escapeHtml(state.metadata.estimate_id)}.</p><ul>${limitations}</ul><p>Protomaps provides map context from OpenStreetMap-derived tiles. Candidate points and analytical values come from the project pipeline.</p>`;
+  const sources = state.metadata.map_scenarios.flatMap((scenario) => scenario.sources || []);
+  const links = [...new Set(sources)].filter((url) => /^https:\/\//.test(url)).map((url) => `<li><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></li>`).join("");
+  $("methodology").innerHTML = `<p><strong>Map coverage:</strong> ${escapeHtml(state.metadata.map_definition)}</p><p><strong>Separate capacity charts:</strong> ${escapeHtml(state.metadata.policy_id)} / ${escapeHtml(state.metadata.estimate_id)}. These charts retain the earlier analytical capacity scenarios; they do not change with the map filter.</p><ul>${limitations}</ul><p>Map policy sources:</p><ul>${links}</ul>`;
+  if (state.metadata.build_screening) {
+    const audit = state.metadata.build_screening;
+    $("methodology").insertAdjacentHTML("beforeend", `<p>BUILD screening covers ${number.format(audit.total_parcel_records)} parcel records. ${number.format(audit.unassessed_district_parcel_records)} records have unassessed district permissions. <a href="data/build_screening.parquet" download>Download the complete screening audit (Parquet)</a>, including review reasons and comparison assumptions.</p>`);
+  }
 }
 
 async function main() {
   try {
-    [state.candidates, state.wards, state.communityAreas, state.neighborhoods, state.comparisons, state.metadata] = await Promise.all([
-      fetchGzipJson("data/candidates.geojson.gz"), fetch("data/wards.geojson").then((r) => r.json()), fetch("data/community_areas.geojson").then((r) => r.json()), fetch("data/neighborhoods.json").then((r) => r.json()),
-      fetch("data/comparisons.json").then((r) => r.json()), fetch("data/metadata.json").then((r) => r.json())
+    const metadataResponse = await fetch("data/metadata.json", { cache: "no-store" });
+    if (!metadataResponse.ok) throw new Error("Run uv run single-stair visualize export to generate map data.");
+    state.metadata = await metadataResponse.json();
+    if (state.metadata.map_schema_version !== 2 || !state.metadata.map_scenarios?.length) throw new Error("Map export is outdated. Run uv run single-stair visualize export, then refresh.");
+    if (!state.metadata.build_screening || !state.metadata.map_scenarios.some((scenario) => scenario.id === "illinois_build")) throw new Error("Map export is outdated for BUILD. Run uv run single-stair visualize export, then refresh.");
+    [state.wards, state.communityAreas, state.neighborhoods, state.comparisons] = await Promise.all([
+      fetch("data/coverage_wards.geojson").then((r) => r.json()), fetch("data/coverage_community_areas.geojson").then((r) => r.json()), fetch("data/neighborhoods.json").then((r) => r.json()),
+      fetch("data/comparisons.json").then((r) => r.json())
     ]);
     populateControls(); initializeMap(); renderNeedChart(); renderComparison(); renderSimulator(); renderMethodology();
-    $("status").textContent = `${number.format(state.metadata.candidate_count)} candidate parcels · generated ${new Date(state.metadata.generated_at).toLocaleDateString()}`;
+    $("status").textContent = `${number.format(state.metadata.map_parcel_count)} mapped parcel records · generated ${new Date(state.metadata.generated_at).toLocaleDateString()}`;
   } catch (error) {
     $("status").textContent = `Visualization data unavailable: ${error.message}`;
   }
