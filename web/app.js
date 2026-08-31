@@ -1,7 +1,7 @@
 /* global maplibregl, pmtiles */
 "use strict";
 
-const state = { candidates: null, wards: null, communityAreas: null, neighborhoods: [], comparisons: [], metadata: null, map: null };
+const state = { candidates: null, wards: null, communityAreas: null, neighborhoods: [], comparisons: [], metadata: null, map: null, popup: null };
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
@@ -64,6 +64,7 @@ function updateOverviewStyle() {
 
 function updateMapView() {
   if (!state.map?.getLayer("ward-fill")) return;
+  state.popup?.remove();
   const mapView = $("map-view").value;
   const overviewView = mapView !== "parcel";
   for (const layer of ["ward-fill", "ward-outline"]) state.map.setLayoutProperty(layer, "visibility", mapView === "ward" ? "visible" : "none");
@@ -96,6 +97,7 @@ function featureMatches(feature) {
 }
 
 function applyFilters() {
+  state.popup?.remove();
   if ($("map-view").value !== "parcel") {
     updateOverviewStyle();
     return;
@@ -107,7 +109,11 @@ function applyFilters() {
   $("map-count").textContent = `${number.format(features.length)} parcels match`;
 }
 
-function parcelDetails(properties) {
+function detailsHtml(rows, note) {
+  return `<div class="map-popup"><dl>${rows.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`).join("")}</dl><p>${escapeHtml(note)}</p></div>`;
+}
+
+function parcelDetailsHtml(properties) {
   const rows = [
     ["PIN", properties.pin || "Unavailable"], ["Community", properties.community || "Unavailable"],
     ["Current zoning", properties.zoning || "Unsupported"], ["Upzoned class", properties.upzoned_zoning || "Not modeled"],
@@ -117,10 +123,10 @@ function parcelDetails(properties) {
     ["Current / single stair", properties.current_single_stair ?? "—"], ["Upzoned / single stair", properties.upzoned_single_stair ?? "—"],
     ["Legal/site review", properties.requires_review ? properties.review_reasons || "Required" : "No automated reason"]
   ];
-  $("parcel-details").innerHTML = `<dl>${rows.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`).join("")}</dl><p><small>Capacities use the 3-bedroom archetype. A map point is a parcel centroid.</small></p>`;
+  return detailsHtml(rows, "Capacities use the 3-bedroom archetype. Points are parcel centroids.");
 }
 
-function areaDetails(properties, geography) {
+function areaDetailsHtml(properties, geography) {
   const scenarioNames = {
     current_two_stair: "Current zoning · two stair",
     current_single_stair: "Current zoning · single stair",
@@ -132,12 +138,37 @@ function areaDetails(properties, geography) {
   const capacity = properties[areaCapacityField()];
   const gain = properties[areaGainField()];
   const displayMetric = (value) => value == null ? "Not modeled" : number.format(value);
-  $("parcel-details").innerHTML = `<dl><dt>${geographyLabel}</dt><dd>${escapeHtml(geographyValue)}</dd><dt>Scenario</dt><dd>${escapeHtml(scenarioNames[scenarioField()])}</dd><dt>Modeled 3-bedroom capacity</dt><dd>${displayMetric(capacity)}</dd><dt>Additional vs. current two stair</dt><dd>${displayMetric(gain)}</dd></dl><p><small>${geographyLabel} totals aggregate parcel-level analytical capacity. Select “Parcel detail” to inspect individual sites.</small></p>`;
+  return detailsHtml([
+    [geographyLabel, geographyValue],
+    ["Scenario", scenarioNames[scenarioField()]],
+    ["Modeled 3-bedroom capacity", displayMetric(capacity)],
+    ["Additional vs. current two stair", displayMetric(gain)]
+  ], `${geographyLabel} totals aggregate parcel-level analytical capacity.`);
+}
+
+function bindFeaturePopup(layer, renderDetails, coordinates) {
+  const show = (event) => {
+    const feature = event.features?.[0];
+    if (!feature) return;
+    state.map.getCanvas().style.cursor = "pointer";
+    state.popup
+      .setLngLat(coordinates ? coordinates(feature, event) : event.lngLat)
+      .setHTML(renderDetails(feature.properties))
+      .addTo(state.map);
+  };
+  state.map.on("mouseenter", layer, show);
+  state.map.on("mousemove", layer, show);
+  state.map.on("click", layer, show);
+  state.map.on("mouseleave", layer, () => {
+    state.map.getCanvas().style.cursor = "";
+    state.popup.remove();
+  });
 }
 
 function initializeMap() {
   state.map = new maplibregl.Map({ container: "map", style: basemapStyle(), center: [-87.68, 41.84], zoom: 9.6, attributionControl: true });
-  state.map.addControl(new maplibregl.NavigationControl(), "top-right");
+  state.popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
+  state.map.addControl(new maplibregl.NavigationControl(), "top-left");
   state.map.on("load", () => {
     state.map.addSource("wards", { type: "geojson", data: state.wards });
     state.map.addLayer({ id: "ward-fill", type: "fill", source: "wards", paint: { "fill-color": "#c6dbef", "fill-opacity": 0.72 } });
@@ -153,15 +184,13 @@ function initializeMap() {
       const zoom = await state.map.getSource("candidates").getClusterExpansionZoom(feature.properties.cluster_id);
       state.map.easeTo({ center: feature.geometry.coordinates, zoom });
     });
-    state.map.on("click", "candidate-points", (event) => parcelDetails(event.features[0].properties));
-    state.map.on("click", "ward-fill", (event) => areaDetails(event.features[0].properties, "ward"));
-    state.map.on("click", "community-fill", (event) => areaDetails(event.features[0].properties, "community"));
-    state.map.on("mouseenter", "ward-fill", () => { state.map.getCanvas().style.cursor = "pointer"; });
-    state.map.on("mouseleave", "ward-fill", () => { state.map.getCanvas().style.cursor = ""; });
-    state.map.on("mouseenter", "community-fill", () => { state.map.getCanvas().style.cursor = "pointer"; });
-    state.map.on("mouseleave", "community-fill", () => { state.map.getCanvas().style.cursor = ""; });
-    state.map.on("mouseenter", "candidate-points", () => { state.map.getCanvas().style.cursor = "pointer"; });
-    state.map.on("mouseleave", "candidate-points", () => { state.map.getCanvas().style.cursor = ""; });
+    bindFeaturePopup("ward-fill", (properties) => areaDetailsHtml(properties, "ward"));
+    bindFeaturePopup("community-fill", (properties) => areaDetailsHtml(properties, "community"));
+    bindFeaturePopup(
+      "candidate-points",
+      parcelDetailsHtml,
+      (feature) => feature.geometry.coordinates
+    );
     updateMapView();
   });
   if (!window.SINGLE_STAIR_CONFIG?.protomapsUrl && !window.SINGLE_STAIR_CONFIG?.protomapsApiKey) {

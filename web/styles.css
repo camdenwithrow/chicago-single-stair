@@ -18,17 +18,23 @@ h2 { font-size: 1rem; }
 header p, .section-heading p, .simulator > p { margin-bottom: 0; color: #555; }
 #status { max-width: 34rem; text-align: right; font-size: .85rem; }
 main {
-  display: grid; grid-template-columns: 15rem minmax(30rem, 1fr) 18rem;
-  grid-template-rows: 36rem auto auto auto; gap: .75rem; padding: .75rem;
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+  grid-template-rows: 40rem auto auto; gap: .75rem; padding: .75rem;
 }
 .panel, .map-panel { background: white; border: 1px solid #ccc; }
 .panel { padding: 1rem; }
-.controls { grid-column: 1; grid-row: 1; }
-.map-panel { grid-column: 2; grid-row: 1; position: relative; }
-.details { grid-column: 3; grid-row: 1; overflow: auto; }
+.map-panel { grid-column: 1 / -1; grid-row: 1; position: relative; overflow: hidden; }
+.controls {
+  position: absolute; z-index: 2; top: 1rem; right: 1rem; width: 15rem;
+  max-height: calc(100% - 2rem); overflow: auto; padding: 1rem;
+  background: white; border: 1px solid #bbb; border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+}
+.controls h2 { margin-bottom: .75rem; }
+.controls label { margin-bottom: .65rem; }
 .wide { grid-column: 1 / -1; }
-.simulator { grid-column: 1 / 3; }
-.methodology { grid-column: 3; }
+.simulator { grid-column: 1; }
+.methodology { grid-column: 2; }
 #map { width: 100%; height: 100%; background: #e8e8e4; }
 label { display: block; margin-bottom: .85rem; font-size: .82rem; color: #444; }
 select, input[type="number"] {
@@ -42,15 +48,12 @@ select, input[type="number"] {
   background: rgba(255,255,255,.94); border: 1px solid #999; font-size: .8rem;
 }
 .map-legend {
-  position: absolute; right: 1rem; bottom: 3rem; max-width: calc(100% - 2rem); padding: .5rem;
+  position: absolute; z-index: 2; left: 1rem; bottom: 2rem; max-width: calc(100% - 2rem); padding: .5rem;
   background: rgba(255,255,255,.94); border: 1px solid #999; font-size: .78rem;
 }
 .map-legend strong { display: block; max-width: 14rem; }
 .legend-ramp { width: 9rem; height: .65rem; margin: .25rem 0; background: linear-gradient(90deg, #f3f1eb, #9ecae1, #08519c); }
-.parcel-filter.is-disabled { opacity: .45; }
-.details dl { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
-.details dt { color: #666; }
-.details dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.parcel-filter.is-disabled { display: none; }
 .section-heading { display: flex; justify-content: space-between; gap: 2rem; }
 .section-heading label { min-width: 14rem; }
 .chart { display: grid; grid-template-columns: minmax(10rem, 16rem) 1fr 6rem; gap: .35rem .75rem; }
@@ -65,13 +68,18 @@ select, input[type="number"] {
 .sim-results strong { font-size: 1.4rem; display: block; }
 .methodology { font-size: .84rem; }
 .methodology ul { padding-left: 1.2rem; }
-.maplibregl-popup-content { border-radius: 0; box-shadow: 0 1px 4px #555; }
+.maplibregl-popup-content {
+  width: 17rem; padding: .75rem; border: 1px solid #aaa; border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+}
+.map-popup dl { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem .75rem; margin: 0; }
+.map-popup dt { color: #666; }
+.map-popup dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.map-popup p { margin: .75rem 0 0; color: #555; font-size: .78rem; }
 
 @media (max-width: 1000px) {
-  main { grid-template-columns: 14rem 1fr; grid-template-rows: auto 32rem auto; }
-  .controls { grid-column: 1; grid-row: 1 / 3; }
-  .map-panel { grid-column: 2; grid-row: 1 / 3; min-height: 32rem; }
-  .details, .wide, .simulator, .methodology { grid-column: 1 / -1; grid-row: auto; }
+  main { grid-template-columns: 1fr; grid-template-rows: 38rem auto; }
+  .map-panel, .wide, .simulator, .methodology { grid-column: 1; grid-row: auto; }
   .sim-inputs { grid-template-columns: repeat(3, 1fr); }
 }
 
@@ -80,6 +88,7 @@ select, input[type="number"] {
   #status { text-align: left; }
   main { display: block; padding: .5rem; }
   .panel, .map-panel { margin-bottom: .5rem; }
-  .map-panel { height: 28rem; }
+  .map-panel { height: 38rem; }
+  .controls { width: calc(100% - 2rem); }
   .sim-inputs, .comparison { grid-template-columns: 1fr; }
 }
