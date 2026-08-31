@@ -1,0 +1,9 @@
+base_branch = "main"
+worktree_path = "../worktrees/{repo}/{branch}"
+port_stride = 100
+
+[ports]
+web = 8000
+
+[commands]
+web = 'uv run --env-file .env single-stair visualize configure && uv run python -m http.server "$RW_PORT" --bind 127.0.0.1 --directory web'
