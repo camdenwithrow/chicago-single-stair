@@ -17,6 +17,40 @@ the app token for identified-client rate limits. The Census API requires `CENSUS
 the CLI, or load `.env` with `uv run --env-file .env single-stair ...` (an environment-file
 runner such as dotenvx also works).
 
+## Redwood worktrees
+
+With `rw`, tmux, and uv on `PATH`, `redwood.toml` creates worktrees from local `main` under
+`../worktrees/{repo}/{branch}`. Keep local `main` current before creating a new branch.
+Redwood reads this configuration from the main checkout, including when invoked in a worktree.
+
+```bash
+rw create feature/my-change
+rw list
+```
+
+Use the worktree path printed by `rw create`. In that worktree, run `uv sync` and prepare its
+own ignored `.env` using `.env.example`. Git does not copy `.env`, generated `web/config.js`,
+or data snapshots into new worktrees. For UI-only work, copy the main checkout's generated
+`web/data/` files into the new worktree's `web/data/` directory. For pipeline work, prepare the
+required snapshots and run `uv run single-stair visualize export` there instead.
+
+Once the worktree has its environment and visualization data:
+
+```bash
+rw start feature/my-change
+rw list
+rw attach feature/my-change
+```
+
+The single `web` window generates browser configuration from that worktree's `.env`, then serves
+only `web/` on `127.0.0.1`. Redwood supplies `RW_PORT` as `8000 + slot * 100`; use the `web` port
+reported by `rw list` to open the dashboard. Ingestion and data export are deliberately manual.
+Stop and start the session after changing `.env` to regenerate map configuration.
+
+To stop the managed server, run `rw stop feature/my-change`. To remove a finished worktree,
+first check it for uncommitted work, then run `rw remove feature/my-change` from another checkout.
+Removal retains the branch; Redwood does not force deletion of dirty worktrees.
+
 ## Raw ingestion
 
 ```bash
