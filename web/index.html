@@ -17,7 +17,7 @@
     </header>
 
     <main>
-      <section class="map-panel" aria-label="Housing capacity map">
+      <section class="map-panel" aria-label="Single-stair zoning coverage map">
         <div id="map"></div>
         <section class="controls" aria-labelledby="filters-title">
           <h2 id="filters-title">Map filters</h2>
@@ -25,15 +25,12 @@
             <select id="map-view">
               <option value="ward" selected>Ward overview</option>
               <option value="community">Community area overview</option>
+              <option value="zoning">Zoning coverage</option>
               <option value="parcel">Parcel detail</option>
             </select>
           </label>
-          <label>Scenario
-            <select id="scenario">
-              <option value="current_two_stair">Current zoning · two stair</option>
-              <option value="current_single_stair" selected>Current zoning · single stair</option>
-              <option value="upzoned_single_stair">Modest upzoning · single stair</option>
-            </select>
+          <label>Zoning coverage
+            <select id="scenario" aria-label="Zoning coverage scenario"></select>
           </label>
           <label class="parcel-filter">Maximum transit distance
             <select id="transit-distance">
@@ -56,9 +53,10 @@
           <label class="check parcel-filter"><input id="underbuilt" type="checkbox" /> Underbuilt flag</label>
           <label class="check parcel-filter"><input id="high-need" type="checkbox" /> High need / low supply</label>
           <p id="map-count" class="metric"></p>
+          <p id="map-scenario-note"></p>
+          <p id="map-message" class="map-message" hidden></p>
         </section>
         <div id="map-legend" class="map-legend"></div>
-        <div id="map-message" class="map-message" hidden></div>
       </section>
 
       <section class="panel wide" aria-labelledby="need-title">

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "id": "current_single_stair",
+  "label": "Current zoning",
+  "description": "Zoning districts selected by Strong Towns Chicago's single-stair map; not a determination of legal eligibility or construction potential.",
+  "reviewed_on": "2026-08-31",
+  "tier_labels": {
+    "res_7": "Residential · 7 units/standard lot",
+    "res_10": "Residential · 10 units/standard lot",
+    "res_15": "Residential · 15 units/standard lot",
+    "com_7": "Commercial ground-floor group · 7 units/standard lot",
+    "com_15": "Commercial ground-floor group · 15 units/standard lot"
+  },
+  "sources": [
+    "https://www.strongtownschicago.org/single-stair",
+    "https://pgwhalen.github.io/single-stair/",
+    "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2681113",
+    "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2681378",
+    "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2681344"
+  ],
+  "tiers": {
+    "res_7": ["RM-5", "RM-5.5", "B2-3"],
+    "res_10": ["RM-6", "RM-6.5"],
+    "res_15": ["B2-5"],
+    "com_7": ["B1-3", "B3-3", "C1-3", "C2-3"],
+    "com_15": ["B1-5", "B3-5", "C1-5", "C2-5"]
+  }
+}

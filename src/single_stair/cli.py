@@ -141,6 +141,8 @@ def _parser() -> argparse.ArgumentParser:
     export.add_argument("--policy", default="chicago_proposed")
     export.add_argument("--estimate", default="median")
     export.add_argument("--output", type=Path, default=Path("web/data"))
+    export.add_argument("--raw-root", type=Path, default=Path("data/raw"))
+    export.add_argument("--final-root", type=Path, default=Path("data/final"))
     configure = visualization_commands.add_parser(
         "configure", help="Generate public browser map configuration from environment variables"
     )
@@ -157,6 +159,8 @@ async def _run(arguments: argparse.Namespace) -> None:
         exported = await asyncio.to_thread(
             export_visualization_data,
             output_directory=arguments.output,
+            raw_root=arguments.raw_root,
+            final_root=arguments.final_root,
             policy_id=arguments.policy,
             estimate_id=arguments.estimate,
         )
