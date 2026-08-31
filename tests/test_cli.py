@@ -1,9 +1,30 @@
+import asyncio
+import io
+import os
 import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from single_stair.cli import _parser
+from single_stair.cli import _parser, _run
 
 
 class CliTests(unittest.TestCase):
+    def test_configure_generates_config_without_data_snapshots_or_logging_values(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            output = Path(temporary_directory) / "config.js"
+            arguments = _parser().parse_args(["visualize", "configure", "--output", str(output)])
+            stdout = io.StringIO()
+            with patch.dict(os.environ, {"PROTOMAPS_API_KEY": "fake-map-key"}, clear=True):
+                with redirect_stdout(stdout):
+                    asyncio.run(_run(arguments))
+            self.assertTrue(output.is_file())
+            self.assertIn("fake-map-key", output.read_text("utf-8"))
+            self.assertNotIn("fake-map-key", stdout.getvalue())
+        defaults = _parser().parse_args(["visualize", "configure"])
+        self.assertEqual(defaults.output, Path("web/config.js"))
+
     def test_parses_building_tax_year(self) -> None:
         arguments = _parser().parse_args(["ingest", "cook-county-buildings", "--tax-year", "2025"])
 

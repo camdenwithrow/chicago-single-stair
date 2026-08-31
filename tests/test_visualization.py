@@ -1,6 +1,9 @@
+import json
+import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import duckdb
 import geopandas as gpd
@@ -11,7 +14,45 @@ from single_stair.visualization import (
     _candidate_query,
     _community_area_geojson,
     _ward_geojson,
+    write_visualization_config,
 )
+
+
+class VisualizationConfigTests(unittest.TestCase):
+    def test_only_public_map_settings_are_generated_and_safely_serialized(self) -> None:
+        settings = {
+            "PROTOMAPS_API_KEY": 'fake-key";\n\\test\u2028',
+            "PROTOMAPS_URL": "https://example.com/{z}/{x}/{y}.mvt",
+            "CENSUS_API_KEY": "private-census-credential",
+            "SOCRATA_APP_TOKEN": "private-socrata-credential",
+        }
+        with TemporaryDirectory() as temporary_directory:
+            output = Path(temporary_directory) / "web" / "config.js"
+            with patch.dict(os.environ, settings, clear=True):
+                self.assertEqual(write_visualization_config(output), output)
+            script = output.read_text("utf-8")
+        config = json.loads(script.split("window.SINGLE_STAIR_CONFIG = ", 1)[1].strip()[:-1])
+        self.assertEqual(
+            config,
+            {
+                "protomapsApiKey": settings["PROTOMAPS_API_KEY"],
+                "protomapsUrl": settings["PROTOMAPS_URL"],
+            },
+        )
+        self.assertNotIn(settings["CENSUS_API_KEY"], script)
+        self.assertNotIn(settings["SOCRATA_APP_TOKEN"], script)
+
+    def test_missing_variables_clear_previous_config(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            output = Path(temporary_directory) / "config.js"
+            with patch.dict(os.environ, {"PROTOMAPS_API_KEY": "old-key"}, clear=True):
+                write_visualization_config(output)
+            with patch.dict(os.environ, {}, clear=True):
+                write_visualization_config(output)
+            script = output.read_text("utf-8")
+        self.assertNotIn("old-key", script)
+        self.assertIn('"protomapsApiKey": ""', script)
+        self.assertIn('"protomapsUrl": ""', script)
 
 
 class VisualizationExportTests(unittest.TestCase):

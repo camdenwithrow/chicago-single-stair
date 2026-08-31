@@ -26,7 +26,7 @@ from single_stair.transform.combine_opportunity_need import build_combined_oppor
 from single_stair.transform.family_housing_need import build_family_housing_need
 from single_stair.transform.parcel_opportunity import build_parcel_opportunity
 from single_stair.transform.permit_baseline import build_permit_baseline
-from single_stair.visualization import export_visualization_data
+from single_stair.visualization import export_visualization_data, write_visualization_config
 
 
 def _report_parcel_progress(batch: ParcelBatch, feature_count: int) -> None:
@@ -141,11 +141,19 @@ def _parser() -> argparse.ArgumentParser:
     export.add_argument("--policy", default="chicago_proposed")
     export.add_argument("--estimate", default="median")
     export.add_argument("--output", type=Path, default=Path("web/data"))
+    configure = visualization_commands.add_parser(
+        "configure", help="Generate public browser map configuration from environment variables"
+    )
+    configure.add_argument("--output", type=Path, default=Path("web/config.js"))
     return parser
 
 
 async def _run(arguments: argparse.Namespace) -> None:
     if arguments.command == "visualize":
+        if arguments.visualization_command == "configure":
+            output = write_visualization_config(arguments.output)
+            print(f"Generated public map configuration at {output}")
+            return
         exported = await asyncio.to_thread(
             export_visualization_data,
             output_directory=arguments.output,

@@ -195,7 +195,7 @@ function initializeMap() {
   });
   if (!window.SINGLE_STAIR_CONFIG?.protomapsUrl && !window.SINGLE_STAIR_CONFIG?.protomapsApiKey) {
     $("map-message").hidden = false;
-    $("map-message").textContent = "Ward, community-area, and parcel data are shown without a basemap. Add a domain-restricted Protomaps API key or self-hosted tile URL in config.js.";
+    $("map-message").textContent = "Map data are shown without a basemap. Set PROTOMAPS_API_KEY or PROTOMAPS_URL in .env, then run: uv run --env-file .env single-stair visualize configure";
   }
 }
 

@@ -2,6 +2,7 @@ AGENTS.md
 .env
 .env.*
 !.env.example
+/web/config.js
 __pycache__/
 *.py[cod]
 .ruff_cache/

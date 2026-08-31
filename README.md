@@ -14,7 +14,8 @@ optional and is shared by the Cook County and Chicago public-data requests. The 
 token is intentionally not used: these are anonymous, read-only SODA requests that only require
 the app token for identified-client rate limits. The Census API requires `CENSUS_API_KEY`; request a key from
 [api.census.gov](https://api.census.gov/data/key_signup.html). Export the variables before running
-the CLI, or use an environment-file runner such as dotenvx.
+the CLI, or load `.env` with `uv run --env-file .env single-stair ...` (an environment-file
+runner such as dotenvx also works).
 
 ## Raw ingestion
 
@@ -237,6 +238,7 @@ Export browser-ready data from the latest analytical snapshots and serve the sta
 
 ```bash
 uv run single-stair visualize export
+uv run --env-file .env single-stair visualize configure
 python3 -m http.server 8000 --directory web
 ```
 
@@ -255,9 +257,21 @@ assumption-driven lot simulator. Map filters remain in a compact overlay on the 
 simulator defaults to a 25-by-125-foot lot; change the width to 50 feet for the second documented
 archetype.
 
-Set `protomapsApiKey` in `web/config.js` to use the hosted Protomaps v5 light style. Browser map
-keys are visible to users, so restrict the key to the deployed domains in the Protomaps account.
-Alternatively set `protomapsUrl` to a self-hosted PMTiles archive or compatible ZXY vector endpoint.
-Without either value, the analytical points still render over a blank context layer and the UI
-shows a configuration notice. See the official [Protomaps hosted API](https://protomaps.com/api)
+Set `PROTOMAPS_API_KEY` in the root `.env` to use the hosted Protomaps v5 light style. Alternatively,
+set `PROTOMAPS_URL` to a self-hosted PMTiles archive or compatible ZXY vector endpoint. When both
+are set, the API key takes precedence. Both settings are optional; leave them empty for analytical
+geometry without a basemap.
+
+The `visualize configure` command generates git-ignored `web/config.js` with only these two public
+map settings. It does not require data snapshots and does not export Census or Socrata credentials.
+Run it again after changing the environment, then hard-refresh the page. The data export command
+does not change map configuration. In CI, inject the same variables and run
+`uv run single-stair visualize configure` before publishing `web/`; serve only `web/`, never the
+repository root or `.env`. Use `--output path/to/config.js` for another static output directory.
+
+This keeps credentials out of Git, not out of the browser: the generated map key is still public.
+Restrict it to the deployed domains in the Protomaps account. Existing installations should move
+the values from the old hand-edited `web/config.js` into `.env` before regenerating it; absent
+variables generate empty values rather than preserving stale keys. See the official
+[Protomaps hosted API](https://protomaps.com/api)
 and [MapLibre integration](https://docs.protomaps.com/pmtiles/maplibre) documentation.
